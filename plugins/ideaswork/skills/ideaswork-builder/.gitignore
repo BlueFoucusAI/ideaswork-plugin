@@ -1,0 +1,15 @@
+# 身份配置（含 token），仅本地，不入库
+tools/config.json
+
+# 打样草稿产物
+drafts/
+
+.avp_gaps.json
+
+# 缓存与打包产物
+__pycache__/
+*.pyc
+*.zip
+.DS_Store
+.venv/
+.pytest_cache/

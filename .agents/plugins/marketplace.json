@@ -1,0 +1,20 @@
+{
+  "name": "ideaswork-preprod",
+  "interface": {
+    "displayName": "IdeasWork Preprod"
+  },
+  "plugins": [
+    {
+      "name": "ideaswork",
+      "source": {
+        "source": "local",
+        "path": "./plugins/ideaswork"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Creativity"
+    }
+  ]
+}

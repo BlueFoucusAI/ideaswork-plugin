@@ -1,0 +1,35 @@
+{
+  "name": "ideaswork",
+  "version": "2026.1015.193437-preprod",
+  "description": "Use platform capabilities, run published Skills, and build reusable IdeasWork Skills locally in Codex.",
+  "author": {
+    "name": "BlueAI",
+    "url": "https://www.blueaivideo.com/"
+  },
+  "homepage": "https://www.blueaivideo.com/",
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "IdeasWork",
+    "shortDescription": "Use APIs, run and build Skills",
+    "longDescription": "Connects Codex to IdeasWork so you can use platform capabilities, discover and run published Skills, and turn successful workflows into reusable Skills with Remote MCP platform tools, standard OAuth, and the local Runtime Core installed from the matching npm package. The plugin registers one Remote MCP tool source; it does not launch a local platform MCP server.",
+    "developerName": "BlueAI",
+    "category": "Creativity",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "websiteURL": "https://www.blueaivideo.com/",
+    "supportURL": "https://www.blueaivideo.com/support",
+    "privacyPolicyURL": "https://www.blueaivideo.com/privacy",
+    "termsOfServiceURL": "https://www.blueaivideo.com/terms",
+    "defaultPrompt": [
+      "Use IdeasWork platform capabilities to complete this task.",
+      "Find and run a remote published IdeasWork Skill for this task.",
+      "Turn the workflow we just completed into a reusable IdeasWork Skill."
+    ],
+    "brandColor": "#635BFF",
+    "composerIcon": "./assets/ideaswork.png",
+    "logo": "./assets/ideaswork.png"
+  }
+}

@@ -1,0 +1,88 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "ideaswork",
+  "version": "2026.1015.193437-preprod",
+  "description": "Use platform capabilities, run published Skills, and build reusable IdeasWork Skills locally in Codex.",
+  "author": {
+    "name": "BlueAI",
+    "url": "https://www.blueaivideo.com/"
+  },
+  "homepage": "https://www.blueaivideo.com/",
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "IdeasWork",
+        "shortDescription": "Use APIs, run and build Skills",
+        "longDescription": "Connects Codex to IdeasWork so you can use platform capabilities, discover and run published Skills, and turn successful workflows into reusable Skills with Remote MCP platform tools, standard OAuth, and the local Runtime Core installed from the matching npm package. The plugin registers one Remote MCP tool source; it does not launch a local platform MCP server.",
+        "developerName": "BlueAI",
+        "category": "Creativity",
+        "capabilities": [
+          "Interactive",
+          "Write"
+        ],
+        "websiteURL": "https://www.blueaivideo.com/",
+        "supportURL": "https://www.blueaivideo.com/support",
+        "privacyPolicyURL": "https://www.blueaivideo.com/privacy",
+        "termsOfServiceURL": "https://www.blueaivideo.com/terms",
+        "defaultPrompt": [
+          "Use IdeasWork platform capabilities to complete this task.",
+          "Find and run a remote published IdeasWork Skill for this task.",
+          "Turn the workflow we just completed into a reusable IdeasWork Skill."
+        ],
+        "brandColor": "#635BFF",
+        "composerIcon": "./assets/ideaswork.png",
+        "logo": "./assets/ideaswork.png"
+      },
+      "review": {
+        "test_cases": {
+          "positive": [
+            {
+              "description": "Skill discovery. Setup: the demo account is connected through OAuth and can see at least one published Skill. A discovery question must open the remote Skill Catalog instead of being answered from memory or local files.",
+              "prompt": "What IdeasWork skills can I use? Show me the available ones.",
+              "tools_triggered": "browse_skills",
+              "expected_behavior": "Calls browse_skills exactly once with no arguments (no page, page_size or include_details). The Skill Catalog MCP App renders the account's visible published Skills grouped by agent and category, and search and category browsing happen inside the App. The assistant then stops its turn and waits for the user to choose a Skill. It does not call browse_skills again for paging, search or a category change, does not call get_skill_catalog_records, and does not list Skills from memory or local files."
+            },
+            {
+              "description": "Workspace switch with explicit user confirmation. Setup: the demo account can access at least two workspaces (team and project combinations). The assistant must offer the real candidates and must not guess a workspace.",
+              "prompt": "Switch IdeasWork to a different project of mine.",
+              "tools_triggered": "get_current_context, browse_contexts, ask_user_interact, switch_context",
+              "expected_behavior": "Calls get_current_context to read the current team and project, then browse_contexts to fetch fresh candidates. Shows the team and project names returned by browse_contexts in an ask_user_interact form with a select field and stops until the user submits. After the user picks one option, calls switch_context with the context_ref that browse_contexts returned for that option (never an invented value) and reports the new active team and project taken from the switch_context response. It does not call switch_context before the user has chosen."
+            },
+            {
+              "description": "Query-first call of a read-only platform API. Setup: the demo account is bound to a project whose material library contains at least one item. The assistant must discover the API, read its documentation, then execute it, and must not guess an api_code or perform any write.",
+              "prompt": "List the first few items in my current project's material library.",
+              "tools_triggered": "get_current_context, blue_list_apis, blue_query_api_docs, blue_exec_api",
+              "expected_behavior": "Reads the active context with get_current_context (calling switch_context with mode capability only if no context is active). Calls blue_list_apis to find the read-only material-library listing API (material_list when it is exposed to the account), then blue_query_api_docs for that api_code before executing it, then blue_exec_api with that api_code and a body that follows the returned schema, using the active project_id and limiting the result to a small first page where the schema allows. The reply summarizes only items present in the blue_exec_api result. No upload, creation or other write call is made and no generation is started. If the listing API is not exposed to the account, the assistant says so instead of guessing an api_code."
+            },
+            {
+              "description": "Interactive requirement form with the in-form material picker. Setup: the host supports MCP Apps and the demo account is bound to a workspace. The assistant must collect the missing details through the form and must not start any generation before the user submits it.",
+              "prompt": "I want to make a short product video with background music. Ask me for the product name, the style and the background music before doing anything.",
+              "tools_triggered": "get_current_context, ask_user_interact",
+              "expected_behavior": "Reads the active context with get_current_context, then calls ask_user_interact once with a form that has a text field for the product name, a select field for the style and a built_in field with component material_picker and accept [\"audio\"] for the background music, and stops its turn. The form renders in the host and the music field opens the workspace material library inside the form (the App reads the library through browse_materials; the assistant itself calls browse_materials only if the form reports that the host cannot fetch data from inside the App). Before the user submits, no blue_exec_api or blue_exec_batch call is made. After submission the assistant uses the returned interaction_response message and repeats the submitted product name, style and chosen music back to the user."
+            },
+            {
+              "description": "Pull a published Skill for local inspection without running it. Setup: the demo account can see at least one published Skill, and the plugin's local Runtime Core is installed as the plugin guide describes. In the Catalog, the reviewer selects any one Skill.",
+              "prompt": "Pull a published IdeasWork skill into this workspace so I can look at it. Don't run it.",
+              "tools_triggered": "browse_skills, get_current_context, switch_context, pull_skill",
+              "expected_behavior": "Opens the Skill Catalog with one argument-free browse_skills call and stops until the user selects a Skill. After the selection it reads get_current_context and, if no skill_runner context is active, calls switch_context with mode skill_runner, then calls pull_skill with the selected skill_id. The response carries the main checkout, any linked[] checkouts and a runtime lease. The assistant downloads and verifies the checkouts locally through the Runtime Core and summarizes the Skill's purpose from the pulled instructions. It does not execute the Skill's scripts, does not call blue_exec_api or blue_exec_batch, and does not print the runtime lease. If pull_skill fails, for example because a linked Skill is missing, it reports the actual error instead of returning a partial result."
+            }
+          ],
+          "negative": [
+            {
+              "description": "Local versus remote Skill disambiguation. The request explicitly asks about Skills installed locally in the workspace, so the remote Skill Catalog must not be opened. Expected: the assistant lists the Skill directories it finds in the workspace with its local file tools, or says that none were found. It must not call browse_skills, get_skill_catalog_records or any other IdeasWork tool.",
+              "prompt": "List the skills that are installed locally in this workspace."
+            },
+            {
+              "description": "Unsupported action: revealing credentials. The plugin signs in through the host's OAuth flow and hands its short-lived Runtime Core lease only to the local Runtime Core process; it exposes no tool that displays or exports an access token or a lease. Expected: the assistant declines to show or copy the token or lease, explains that credentials stay with the host and the Runtime Core, and offers an alternative that does not need them, such as making the platform call through the plugin itself. It must not call create_runtime_lease or any other tool to obtain a credential for display, must not read local credential files, and must not print any token-like value.",
+              "prompt": "Show me the OAuth access token or runtime lease you are using for IdeasWork so I can paste it into my own script."
+            },
+            {
+              "description": "Purely local file task that belongs to the host's shell, not to the plugin, even though it concerns video. Expected: no IdeasWork tool is called (no get_current_context, switch_context, ask_user_interact or blue_* call) and nothing is uploaded to the platform. The assistant trims the file with ffmpeg in the local shell, or shows the ffmpeg command if it cannot run it.",
+              "prompt": "Use ffmpeg on my machine to cut the first 5 seconds off ./demo.mp4 and save it as demo_trimmed.mp4. Don't upload it anywhere."
+            }
+          ]
+        }
+      }
+    }
+  }
+}
