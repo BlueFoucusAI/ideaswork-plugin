@@ -1,0 +1,57 @@
+{
+  "contract_version": 1,
+  "name": "ideaswork",
+  "version": "2026.1015.172704",
+  "target": "plugin",
+  "artifact_kind": "codex_plugin",
+  "runtime": {
+    "distribution": "ideaswork-cli",
+    "version": "2026.1015.172704",
+    "implementation": "native-go",
+    "platforms": [
+      "darwin-arm64",
+      "darwin-amd64",
+      "linux-arm64",
+      "linux-amd64",
+      "windows-arm64",
+      "windows-amd64"
+    ],
+    "python_required_for": [
+      "python_skill_execution"
+    ],
+    "delivery": "npm",
+    "npm": {
+      "package": "@ideaswork/cli",
+      "version": "2026.1015.172704",
+      "channel": "release",
+      "tag": "latest",
+      "spec": "@ideaswork/cli@2026.1015.172704"
+    }
+  },
+  "components": {
+    "business_skill": null,
+    "runner_skill": "ideaswork-runner",
+    "capability_skill": "ideaswork-capability",
+    "builder_skill": "ideaswork-builder",
+    "adapter_skill": null,
+    "cli": "ideaswork-cli"
+  },
+  "mode": "runner",
+  "entrypoint": "remote_mcp",
+  "async_delivery": {
+    "adapter": null,
+    "portable": "wait_result",
+    "minimum_harness_version": "0.146.0"
+  },
+  "mcp_apps": {
+    "adapter": null,
+    "profile": "remote_mcp",
+    "form_persistence": "none"
+  },
+  "distribution": {
+    "channel": "release",
+    "allowed_envs": [
+      "prod"
+    ]
+  }
+}
