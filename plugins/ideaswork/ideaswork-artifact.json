@@ -1,12 +1,12 @@
 {
   "contract_version": 1,
   "name": "ideaswork",
-  "version": "2026.1015.193437-preprod",
+  "version": "2026.1015.200710-preprod",
   "target": "plugin",
   "artifact_kind": "codex_plugin",
   "runtime": {
     "distribution": "ideaswork-cli",
-    "version": "2026.1015.193437-preprod",
+    "version": "2026.1015.200710-preprod",
     "implementation": "native-go",
     "platforms": [
       "darwin-arm64",
@@ -22,10 +22,10 @@
     "delivery": "npm",
     "npm": {
       "package": "@ideaswork/cli-preprod",
-      "version": "2026.1015.193437-preprod",
+      "version": "2026.1015.200710-preprod",
       "channel": "preprod",
       "tag": "preprod",
-      "spec": "@ideaswork/cli-preprod@2026.1015.193437-preprod"
+      "spec": "@ideaswork/cli-preprod@2026.1015.200710-preprod"
     }
   },
   "components": {
