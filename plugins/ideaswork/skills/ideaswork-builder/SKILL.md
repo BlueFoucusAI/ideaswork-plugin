@@ -106,7 +106,7 @@ Python 平台验证取得并复用实际调用 Context 的 runtime lease，不�
   不重试。提交通道的可用性属于部署状态，不属于 Skill 构建问题：不记入 gaps、不加 `--report`。
 - 通道存在时，提交前检查本次用户授权、目标工作区、实际 scope 和业务写入权限（`skill.write` 不等于业务权限）。
   `push_skill` 只创建团队 Builder draft，不 publish、不覆盖已发布版本、不保证返回 Studio 链接。
-  CLI 按现有契约切换到 `builder` Context、剥离上传副本里的打样桥接块并排除本地台账。
+  CLI 按现有契约切换到 `builder` Context 并排除本地台账；脚本无需改写，旧草稿遗留的桥接块会在上传副本里剥离。
   scope 不足按服务端提示补授权；业务权限不足请用户申请，不靠重复登录。正式发布是独立高权限动作。
 
 ## 阶段索引

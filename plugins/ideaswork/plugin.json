@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "ideaswork",
-  "version": "2026.1016.111034-preprod",
+  "version": "2026.1016.140911-preprod",
   "description": "Use platform capabilities, run published Skills, and build reusable IdeasWork Skills locally in Codex.",
   "author": {
     "name": "BlueAI",
@@ -25,9 +25,9 @@
         "privacyPolicyURL": "https://www.blueaivideo.com/privacy",
         "termsOfServiceURL": "https://www.blueaivideo.com/terms",
         "defaultPrompt": [
-          "Use IdeasWork platform capabilities to complete this task.",
-          "Find and run a remote published IdeasWork Skill for this task.",
-          "Turn the workflow we just completed into a reusable IdeasWork Skill."
+          "Show me the IdeasWork Skills I can use.",
+          "Generate an image of a cat astronaut with IdeasWork.",
+          "Make a short video ad about a coffee brand with IdeasWork."
         ],
         "brandColor": "#635BFF",
         "composerIcon": "./assets/ideaswork.png",

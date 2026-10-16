@@ -3,7 +3,7 @@
 本插件不内置原生程序。只有下列本地命令需要它：`runtime checkout`、`runtime python`、`runtime wait-result`、
 `material upload`。Remote MCP 的目录查询、API 调用等不依赖它，不要为这些先安装。
 
-插件固定使用 npm 包 `@ideaswork/cli-preprod@2026.1016.111034-preprod`（渠道 `preprod`），版本与插件一致。
+插件固定使用 npm 包 `@ideaswork/cli-preprod@2026.1016.140911-preprod`（渠道 `preprod`），版本与插件一致。
 不要改用其他版本，也不要使用 PATH 上来源不明的 `ideaswork`。
 
 ## 先检查
@@ -12,12 +12,12 @@
 sh <plugin_root>/runtime/bin/ideaswork --json version
 ```
 
-- 成功且 `version` 为 `2026.1016.111034-preprod`：直接使用 Skill 里的 runtime 命令。
+- 成功且 `version` 为 `2026.1016.140911-preprod`：直接使用 Skill 里的 runtime 命令。
 - 失败（`native_binary_missing`、找不到 npx、版本不一致）：按下面安装。
 
 ## 安装（先让用户知情）
 
-简短告知用户：需要 Node.js 22+ 和网络；会全局安装 `@ideaswork/cli-preprod@2026.1016.111034-preprod`，并把校验过 SHA-256 的原生程序
+简短告知用户：需要 Node.js 22+ 和网络；会全局安装 `@ideaswork/cli-preprod@2026.1016.140911-preprod`，并把校验过 SHA-256 的原生程序
 下载到 `~/.ideaswork/npm/preprod/`；不会登录，也不会读取或修改 IdeasWork 登录状态。
 用户拒绝则不安装，并如实说明依赖本地命令的步骤无法执行。
 
