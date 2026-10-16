@@ -1,0 +1,22 @@
+#!/bin/sh
+# Thin Runtime Core launcher. The native program is not bundled: it is installed by the npm package
+# pinned to this plugin's exact version (see skills/*/references/PLUGIN_RUNTIME.md).
+set -eu
+spec='@ideaswork/cli-dev@2026.1016.111034-dev'
+if ! command -v npx >/dev/null 2>&1; then
+  echo "IdeasWork: Node.js 22+ (npx) is required for the local Runtime Core." >&2
+  exit 2
+fi
+# Run npx from a private, empty project root, never from the caller's repository: npm would read
+# that repository's .npmrc (e.g. a hostile @ideaswork:registry=) and node_modules, which defeats the
+# exact-version pin. The Runtime Core itself still starts in the caller's working directory.
+# mkdir/mktemp are not shell builtins and PATH may be minimal; npx implies node, so fall back to it.
+if [ -n "${HOME:-}" ]; then
+  prefix="$HOME/.ideaswork/npx"
+  [ -d "$prefix" ] || (umask 077; mkdir -p "$prefix") 2>/dev/null ||
+    node -e 'require("fs").mkdirSync(process.argv[1], { recursive: true, mode: 0o700 })' "$prefix"
+else
+  prefix="$(mktemp -d 2>/dev/null ||
+    node -p 'require("fs").mkdtempSync(require("path").join(require("os").tmpdir(), "ideaswork-npx-"))')"
+fi
+exec npx --yes --prefer-offline --prefix "$prefix" "$spec" --runtime-only "$@"

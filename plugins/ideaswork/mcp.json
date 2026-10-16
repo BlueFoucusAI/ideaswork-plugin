@@ -1,0 +1,9 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "ideaswork": {
+      "type": "streamable-http",
+      "url": "https://blueai-video-dev.bluemediagroup.cn/mcp"
+    }
+  }
+}

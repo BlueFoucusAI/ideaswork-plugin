@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "ideaswork": {
+      "type": "http",
+      "url": "https://blueai-video-dev.bluemediagroup.cn/mcp",
+      "scopes": [
+        "ideaswork.api.read",
+        "ideaswork.api.execute",
+        "ideaswork.skill.read",
+        "ideaswork.skill.write"
+      ]
+    }
+  }
+}
