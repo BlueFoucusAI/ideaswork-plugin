@@ -1,6 +1,6 @@
 ---
 name: ideaswork-builder
-description: 用户明确要求把已完成的 IdeasWork 能力组合或运行成果沉淀成可复用 Skill，或明确要求从需求、SOP、已有 Skill 开始构建/转化时使用。承接真实执行证据，完成参数化、验证和本地交付，按授权提交草稿。日常生成、处理或多 API 组合使用 Capability；运行已发布 Skill 使用 Runner，不因多次调用自动进入 Builder。
+description: 用户明确要求把已完成的 IdeasWork 能力组合或运行成果沉淀成可复用 Skill，或明确要求从需求、SOP、已有 Skill 开始构建/转化时使用。承接真实执行证据，完成参数化、验证和本地交付；用户没有要求提交/推送时不提交也不提示。日常生成、处理或多 API 组合使用 Capability；运行已发布 Skill 使用 Runner，不因多次调用自动进入 Builder。
 ---
 
 # IdeasWork Builder
@@ -64,6 +64,7 @@ description: 用户明确要求把已完成的 IdeasWork 能力组合或运行�
 只有直接阻塞构建或核心流程、令 Skill 无法达到主要目标、没有合理绕过方案，或有明确基础能力缺失时，才优先记录并考虑反馈。轻微体验差异、非核心问题、能通过 Prompt/Skill 设计绕过的问题、只存在理论影响的问题，不必为了“发现差异”而提报。小问题可以提报，但不是必需。
 
 使用 `ideaswork skill gaps add` 时默认仅记录；只有完成上述判断后才显式加 `--report`。`--kind agent_runtime` 专用于 Agent Runtime/Framework 问题，绝不发送到平台 Tool 能力表单。
+提交通道不可用（`tool_unavailable`）属于部署状态，不是上述任何一类，不记入台账、不提报。
 
 ## 新 Runtime 架构映射
 
@@ -82,7 +83,7 @@ Builder 本地验证平台原生 Skill 时使用固定映射：
 ## 依赖边界
 
 - 身份、平台执行原语、异步轮询和 harness Adapter 由仓库顶层 `ideaswork-cli` 提供。
-- Builder 通过 Remote MCP 发现平台能力并交接草稿；独立 CLI 可用 `ideaswork skill push` 创建 Builder draft。
+- Builder 通过 Remote MCP 发现平台能力；构建的默认交付物是**本地草稿目录**。提交只在用户明确要求时才处理，见下文「提交（仅在被要求时）」。
 - Builder 不实现 Adapter；Plugin/CLI 默认均包含 Runner、Capability、Builder，旧打包 mode 不设角色门槛。
 - 制品转换由仓库顶层 `builders/` 负责；本 Skill 只生成目标无关的 Skill 源文件。
 
@@ -91,11 +92,22 @@ Builder 本地验证平台原生 Skill 时使用固定映射：
 模式切换若在旧部署产生新平台会话，保留原任务/产物关联，不能假定已合并；不为本地创作强制新建 builder Context。
 Python 平台验证取得并复用实际调用 Context 的 runtime lease，不能拿旧 lease 继承权限。
 
-`ideaswork skill push <skill_dir> --name <name>` 通过 Remote MCP `push_skill` 创建团队 Builder draft。
-CLI 按现有契约切换到 `builder` Context、剥离上传副本里的打样桥接块并排除本地台账；**不会**自动 publish、覆盖已发布版本或返回 Studio 会话链接。
-提交前检查本次用户授权、目标工作区、实际 scope 和业务写入权限；`skill.write` 不等于业务权限。
-`push_skill` 未注册、scope 不足或业务权限拒绝时，保留可用本地草稿，不换身份/入口绕过。
-业务权限不足不能靠重复登录解决；缺少 scope 则按真实授权提示处理。正式发布是独立高权限动作。
+## 提交（仅在被要求时）
+
+默认终点是通过 `ideaswork skill validate` 的本地草稿目录。**用户没有要求提交/上传/推送时，不提交，也不在收尾或任何
+位置提及、推荐或询问提交**；交付只说明草稿路径与校验结果。
+
+用户明确要求提交时，才按保守策略处理，不预设通道是否可用：
+
+- 先探测再授权。Plugin 看当前 MCP 工具清单有无 `push_skill`；CLI 直接运行
+  `ideaswork skill push <skill_dir> --name <name>`，它先本地打包校验，再探测工具；探测不到返回
+  `error_code=tool_unavailable / next_action=keep_local_draft`，且不会切换 Context。
+- 通道不存在、scope 不足或业务权限拒绝时：保留本地草稿，如实说明这次没能提交及原因，不换身份、入口或裸 HTTP 绕过，
+  不重试。提交通道的可用性属于部署状态，不属于 Skill 构建问题：不记入 gaps、不加 `--report`。
+- 通道存在时，提交前检查本次用户授权、目标工作区、实际 scope 和业务写入权限（`skill.write` 不等于业务权限）。
+  `push_skill` 只创建团队 Builder draft，不 publish、不覆盖已发布版本、不保证返回 Studio 链接。
+  CLI 按现有契约切换到 `builder` Context、剥离上传副本里的打样桥接块并排除本地台账。
+  scope 不足按服务端提示补授权；业务权限不足请用户申请，不靠重复登录。正式发布是独立高权限动作。
 
 ## 阶段索引
 

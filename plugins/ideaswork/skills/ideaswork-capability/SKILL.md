@@ -33,12 +33,37 @@ description: 通过 IdeasWork Remote MCP 或独立 CLI 查询、调用和组合�
   当前上下文或已有文件足够时直接复用；平台历史读取只使用实际提供且获授权的入口，不臆造查询工具。
 - 不把当前插件内的 Runner、Builder 或本地文件当作平台能力或线上 Skill Catalog。
 
+## 最短路径（Remote MCP）
+
+一次简单任务（例如生成一个视频）常见只需 4–6 轮；不要为“稳妥”多走步骤：
+
+| 轮 | 动作 | 何时可省或合并 |
+|---|---|---|
+| 1 | `get_current_context` | 本会话已见 `active_context.mode == "capability"` 且工作区未变：跳过 |
+| 2 | `switch_context(mode="capability")` | 仅无 active context 或 mode 不符时 |
+| 3 | `blue_list_apis` | 本 Context 内已列过，或 `api_code` 已由前文确定：跳过 |
+| 4 | `blue_query_api_docs`：创建 API，**连同**已知的状态查询 API | 同一 Context 内已查过的 `api_code` 不重复查 |
+| 5 | `blue_exec_api`；已确定是异步时，**同一轮**加 `create_runtime_lease` | 同步 API 无需 lease |
+| 6 | `sh <plugin_root>/runtime/bin/ideaswork runtime wait-result` | 同步 API 无此步 |
+
+规则：
+
+- **互不依赖的调用放在同一轮发出**（如两个 `blue_query_api_docs`，或异步创建与 `create_runtime_lease`）。
+  宿主若串行执行也无妨，仍少一次模型往返。有数据依赖的不得同轮：`exec` 依赖文档，`wait-result` 依赖任务 ID。
+- **lease 不是调用 `blue_*` 或 `ask_user_interact` 的前置条件**：它们走宿主 OAuth。只有本地 Runtime Core 动作
+  （`wait-result`、`runtime python`、素材上传）才需要 lease。不要在 `get_current_context` / `switch_context` 之后预先取；
+  在确定要做本地动作的那一轮取，并在有效期内复用。
+- 用户原话和 API 文档默认值能确定的参数不要再问；必须问时一次问全（见「MCP Apps」）。
+- 互相独立、文档均已查询的多个操作，用一次 `blue_exec_batch`，不拆成多轮单调用。
+
 ## 连接与上下文
 
 1. 先检查本 task 是否已有 IdeasWork Remote MCP 工具（例如 `get_current_context`、`blue_query_api_docs`）。
    - 若没有：请用户在插件中完成/重新触发 **Connect IdeasWork** 的 OAuth 授权，然后重连或新建 task。
    - 不执行 `codex mcp login`，不读取 CLI 登录态，不以 `List MCP resources` 是否为空判断登录或工具可用性。
-2. 调用 `get_current_context`。若没有 active context 或当前 mode 不是 `capability`，调用：
+2. **上下文只确认一次**：本会话内任一 `get_current_context` / `switch_context` 的返回已显示 capability 模式的
+   active context，且用户没有要求换工作区，就直接进入「调用能力」，不重复检查。否则调用 `get_current_context`；
+   没有 active context 或当前 mode 不是 `capability` 时调用：
    ```text
    switch_context(mode="capability")
    ```
@@ -57,7 +82,9 @@ description: 通过 IdeasWork Remote MCP 或独立 CLI 查询、调用和组合�
    ```text
    blue_query_api_docs(api_code)
    ```
-   只使用返回的 schema、必填参数、限制与结果说明组织 body。
+   只使用返回的 schema、必填参数、限制与结果说明组织 body。同一 Context 内已成功查过的 `api_code` 不重复查；
+   Context 变化（含 `new_session`），或 `blue_exec_api` 因未查文档被拒绝时再查。
+   若创建 API 的文档或 `blue_list_apis` 结果已指明其状态查询 API，与创建 API 的文档**同一轮**一并查询。
 3. 再调用：
    ```text
    blue_exec_api(api_code, body)
@@ -70,9 +97,10 @@ description: 通过 IdeasWork Remote MCP 或独立 CLI 查询、调用和组合�
 4. 只有多个操作彼此独立、每项文档均已查询、且不需要逐项根据结果调整时才用 `blue_exec_batch`。否则按顺序
    调用 `blue_exec_api`。
 5. 若返回异步任务 ID，统一使用本地 Runtime Core `sh <plugin_root>/runtime/bin/ideaswork runtime wait-result` 等待并获取结果。
-   使用 `wait_result_hint` 的查询 API 和完成条件，先查该 API 文档，按创建响应中的真实任务 ID
+   使用 `wait_result_hint` 的查询 API 和完成条件；其文档若还没查询过就先查，按创建响应中的真实任务 ID
    组织查询参数；缺少查询 API 时，仅在 `task_status` 已授权且文档确认适用时使用它。
-   调用 `create_runtime_lease` 取得当前 capability Context 的短期 lease，有效期间串行复用；
+   需要 lease 时调用 `create_runtime_lease` 取得当前 capability Context 的短期 lease（已确定是异步时可与
+   `blue_exec_api` 同轮发出），有效期间串行复用；
    把 `runtime_endpoint` / `runtime_lease` 仅传给 Runtime Core parent，不写入文件或普通日志。
    单任务传 `--query-api-code / --params-json / --completion-json`；同批多任务一次传 `--tasks-json`。
    用等待器的 `--initial-delay / --interval / --max-polls` 管理等待窗口，不由 Agent 手工 sleep 或轮询。
@@ -84,9 +112,12 @@ description: 通过 IdeasWork Remote MCP 或独立 CLI 查询、调用和组合�
 ## MCP Apps：需求与素材
 
 - 用户意图和参数已经足够明确时，不必额外弹表单。
-- 缺少多个结构化字段、需要选择规格或让用户确认可变选项时，调用一次 `ask_user_interact`。展示后结束本轮，
-  等用户的普通消息回传 `interaction_response`；核对 `interaction_id`、`action` 和 `data`，确认后直接继续，
-  取消则停止相应动作。没有 `submit_interaction` / `get_interaction_status` 工具，不猜测或代替用户选择。
+- **调用 `ask_user_interact` 前先读 [references/FORMS.md](references/FORMS.md)**：照其中的骨架、字段类型表和 few-shot
+  写参数，过一遍提交前自检。`tabs` 必须是数组对象；字段只用文档列出的键和 10 种类型；`select` 的 `options`
+  是 `{label, value}` 对象数组；默认值写 `value`；数字、布尔、数组不要写成字符串。
+- 缺少多个结构化字段、需要选择规格或让用户确认可变选项时，调用**一次** `ask_user_interact`，把缺的字段和素材字段一次问全。
+  展示后结束本轮，等用户的普通消息回传 `interaction_response`；核对 `interaction_id`、`action` 和 `data`，
+  确认后直接继续，取消则停止相应动作。没有 `submit_interaction` / `get_interaction_status` 工具，不猜测或代替用户选择。
 - 需要用户从素材库选素材时，先确认当前已绑定工作区，调用 `ask_user_interact` 并加入
   `{"key":"material","type":"built_in","component":"material_picker","label":"素材","accept":["image"],"multi":false}`
   等素材字段；表单内二级展开素材库，所选对象随 `interaction_response.data` 回传。`browse_materials` 只是

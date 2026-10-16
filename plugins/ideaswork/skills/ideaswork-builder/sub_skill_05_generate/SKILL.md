@@ -1,8 +1,8 @@
-# sub_skill_05_generate — 生成 Skill 草稿并交接 Builder draft
+# sub_skill_05_generate — 生成 Skill 草稿并本地交付
 
 ## 目标
 
-把设计与验证结果落成一份可运行的平台格式 Skill，完成本地静态校验，再按用户授权交接为团队 Builder draft。`push_skill` 不会自动发布。
+把设计与验证结果落成一份可运行的平台格式 Skill，完成本地静态校验并交付本地草稿目录。远端提交只在用户明确要求时才处理，见 §4。
 
 ## 步骤
 
@@ -55,37 +55,42 @@ ideaswork skill validate <草稿目录>
 
 修复全部 FAIL。核对 `api.json` 是用途说明 dict，`__` 前缀键不计入 API，业务 code 都已查过文档、核心路径没有未授权或待验证的 API；对关键调用保留 sub_skill_04 的真实请求示例。静态校验不会证明平台 API 实际可调用。
 
-### 4. 按需提交团队 draft（不是本地交付前提）
+### 4. 提交团队 draft（仅在用户明确要求时；不是本地交付前提）
 
-先交付草稿路径、名称、说明和静态校验结果。仅用户明确要求上传/提交时，展示目标团队和提交范围，
-取得本次上传授权；检查当前入口是否真实提供 `push_skill`、实际 scope 和业务写入权限。
-本地创作不要求 write；用户请求“发布”也不能让 push 自动变为正式发布。
+先交付草稿路径、名称、说明和静态校验结果，到此本地交付已完整。**用户没有要求上传/提交/推送时，跳过本节，
+也不提及、推荐或询问提交。** 用户请求“发布”也不能让 push 自动变为正式发布。
 
-**Codex Plugin 主链路**：保持 Plugin 的 OAuth 身份，不默认改用独立 CLI。
-若 `push_skill` 可用，按它的实际 schema/大小上限构造 zip：只包含 Skill 源文件，剥离上传副本的完整打样桥接标记块，
-排除 `.avp_gaps.json`、`SKILL_BUILD_FINDINGS.md`、`__skill_meta.json`、构建说明、凭据、缓存和测试产物；保留本地源文件。
-缺失/重复/顺序错误的桥接标记先修复，不上传符号链接、越界路径或未经检查的 archive。用真实团队 Context 提交。
-Tool 未注册或无法按契约构造受检 archive 时，保留本地交付并说明限制，不臆造工具、不借 CLI 身份绕过。
+用户明确要求后，**先探测，再授权**：确认提交通道真实存在，再向用户展示目标团队和提交范围并取得本次上传授权。
 
-**独立 CLI 入口**：仅当前任务明确使用并授权 CLI 时，沿用它的 OAuth 和同一个 `--task`：
+- **Codex Plugin 主链路**：保持 Plugin 的 OAuth 身份，不默认改用独立 CLI。看当前 MCP 工具清单有无 `push_skill`；
+  没有就停止本节，保留本地交付并说明限制，不臆造工具、不借 CLI 身份绕过。
+  有则按它的实际 schema/大小上限构造 zip：只包含 Skill 源文件，剥离上传副本的完整打样桥接标记块，
+  排除 `.avp_gaps.json`、`SKILL_BUILD_FINDINGS.md`、`__skill_meta.json`、构建说明、凭据、缓存和测试产物；保留本地源文件。
+  缺失/重复/顺序错误的桥接标记先修复，不上传符号链接、越界路径或未经检查的 archive。用真实团队 Context 提交。
+- **独立 CLI 入口**：仅当前任务明确使用并授权 CLI 时，沿用它的 OAuth 和同一个 `--task`。`skill push` 自己先本地打包校验、
+  再探测工具，探测不到时在改动任何 Context 之前返回 `tool_unavailable / keep_local_draft`：
 
 ```bash
-ideaswork context list --json --task <task>
-ideaswork context use <本次确认的团队context_ref> --mode builder --json --task <task>
 ideaswork skill push <草稿目录> --name <skill-name> --category <category> --description "<说明>" --json --task <task>
 ```
 
-已有正确团队可复用；只在远端契约要求时切换 mode。CLI push 会剥离上传副本的打样桥接块并排除本地台账和缓存。
+  沿用当前已确认的团队；需要换团队时才先 `context list --json --task <task>` 让用户确认本次候选，
+  再 `context use <本次确认的context_ref> --mode builder --json --task <task>`。
+  CLI push 会剥离上传副本的打样桥接块并排除本地台账和缓存。
+
+**不可用**（`tool_unavailable`，或 Plugin 工具清单里没有 `push_skill`）：保留本地草稿，如实说明这次没能提交，
+草稿在 <路径>。提交通道的可用性属于部署状态，不是 Skill 构建问题：**不记入 gaps、不 `--report`**，
+不重试，不换身份、入口或裸 HTTP 绕过。
 
 **结果与失败**：只按真实返回记录 draft ID、名称、状态、API codes 和 `publish_required`。
-`push_skill` 不自动 publish、覆盖正式版本或保证返回 Studio 链接。名称冲突、非团队空间、Tool 不可用或权限拒绝时保留草稿。
+`push_skill` 不自动 publish、覆盖正式版本或保证返回 Studio 链接。名称冲突、非团队空间或权限拒绝时保留草稿。
 缺少 OAuth scope 按服务端实际补充授权提示处理；有 scope 但业务权限不足应申请业务权限，不反复登录。
 Plugin/CLI 凭据不互换，不自动切通道重试；没有服务端确认就不能声称已提交。
 
 ### 5. 收口
 
-交接后记录服务端实际返回的 draft ID、名称、状态和 `publish_required`，连同本地草稿路径进入 `sub_skill_06_gapreport`。正式发布由具备权限的用户在平台另行操作。
+进入 `sub_skill_06_gapreport`，带上本地草稿路径；仅当服务端实际接受了提交，才一并带上返回的 draft ID、名称、状态和 `publish_required`。正式发布由具备权限的用户在平台另行操作。
 
 ## 产出
 
-通过静态校验的本地 Skill 草稿；如已获授权并上传，附实际返回的 Builder draft 元数据。没有服务端返回就只报告本地草稿，不声称已交接或已发布。
+通过静态校验的本地 Skill 草稿。只有实际提交成功时才附服务端返回的 Builder draft 元数据；没有服务端返回就只报告本地草稿，不声称已交接或已发布。

@@ -2,7 +2,7 @@
 # Thin Runtime Core launcher. The native program is not bundled: it is installed by the npm package
 # pinned to this plugin's exact version (see skills/*/references/PLUGIN_RUNTIME.md).
 set -eu
-spec='@ideaswork/cli-preprod@2026.1015.200710-preprod'
+spec='@ideaswork/cli-preprod@2026.1016.111034-preprod'
 if ! command -v npx >/dev/null 2>&1; then
   echo "IdeasWork: Node.js 22+ (npx) is required for the local Runtime Core." >&2
   exit 2

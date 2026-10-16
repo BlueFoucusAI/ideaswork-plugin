@@ -12,6 +12,20 @@
 2. 本地创作、台账和静态校验不要求远端登录、builder Context 或写入权限；纯本地任务可直接继续。
    需要远端发现/验证时，Codex Plugin 先检查 Remote MCP 连接；已有有效连接和上下文则复用。
    调用 `get_current_context` 确认工作区；需要更换团队或项目时，调用 `browse_contexts` 获取当前最新候选，再用本次结果中的名称通过 `ask_user_interact` 的 `select` 让用户明确选择。结束本轮，等待普通用户消息中的 `interaction_response`；仅在 `action=confirm` 时把所选项对应的**本次** `context_ref` 传给 `switch_context`，取消则不切换。无需提交/查询表单状态；不要使用 MCP App 展开卡片或缓存的 ref，也不要读取或复用独立 CLI 的 OAuth session。
+
+   `select` 表单的固定写法（`tabs` 是数组对象；`options` 是 `{label, value}` 对象数组，`value` 填该选项**本次**的
+   `context_ref`；说明文字放在调用前，调用后立刻结束本轮，不再输出或调用工具）：
+
+   ```text
+   ask_user_interact(mode="form", title="选择工作区", tabs=[
+     {"key": "workspace", "label": "工作区", "fields": [
+       {"key": "context_ref", "type": "select", "label": "团队 / 项目", "required": true,
+        "options": [{"label": "团队A / 项目1", "value": "<本次 browse_contexts 返回的 context_ref>"},
+                    {"label": "团队A / 项目2", "value": "<本次 browse_contexts 返回的 context_ref>"}]}]}])
+   ```
+
+   常见错误：`tabs` 写成 JSON 字符串；`options` 写成字符串数组；tab 缺 `key` 或 `label`；使用 `name` / `default` / `choices`
+   等不存在的键；用选项的 `label` 而不是 `value` 去调用 `switch_context`。
 3. 独立终端使用制品内的 `runtime/bin/ideaswork` 或 PATH 中的 `ideaswork`。原生 CLI 不要求 Python/pip/requests，
    仅执行 Python Skill 时需要 Python；远端动作使用独立 CLI 的 OAuth。可用以下命令检查连接：
 

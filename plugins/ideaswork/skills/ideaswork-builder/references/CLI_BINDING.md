@@ -23,8 +23,9 @@ conversion/sampling 模式、渐进加载、用户授权、API grant 或 draft/p
 - 异步任务用 `runtime wait-result` 的 `--query-api-code / --params-json / --completion-json`，
   多任务用 `--tasks-json`；可显式 `--state-file`，超时退出 3 后 `--resume <文件>`，不重复创建任务。
   中断/网络结果不明/Context 丢失先核对实际状态，不盲目重跑有副作用的验证脚本。
-- 本地编辑、`skill validate`、`skill gaps` 和 `skill push <draft> --name <name> --json` 沿用各阶段规则。
-  只有用户明确要求提交才 push；它只创建 draft，不是 publish。Tool 未注册、scope 或业务权限不足时保留草稿。
+- 本地编辑、`skill validate`、`skill gaps` 沿用各阶段规则。`skill push <draft> --name <name> --json` 只在用户明确要求提交时运行，
+  未被要求就不运行、不提及；它只创建 draft，不是 publish。它先本地打包校验再探测 `push_skill`，探测不到返回
+  `tool_unavailable / keep_local_draft` 且不改动 Context，此时保留草稿并如实说明，不记 gaps、不重试。scope 或业务权限不足同样保留草稿。
   Plugin 任务不能自动转 CLI OAuth 绕过；已具 scope 但业务权限不足不重复 login，按真实拒绝引导申请业务权限。
 
 以上命令均通过 `ideaswork` 调用并复用原 `--task`。`--json` 成功保留业务 payload，失败带
