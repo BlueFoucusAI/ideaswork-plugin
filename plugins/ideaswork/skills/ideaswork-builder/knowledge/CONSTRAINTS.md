@@ -1,6 +1,6 @@
 # 平台约束速查（本地打样必读）
 
-> 本地打样时按这份约束写脚本；`ideaswork skill push` 会剥离标记的 `avp_local` 桥接块，再创建平台 Builder draft。
+> 本地打样时按这份约束写脚本。脚本本地与平台是同一份代码：`call_platform_api` 由运行时注入，无需桥接块。
 > 完整规范见平台 `agent_skills/avp_skill_creator/knowledge/skill_spec.md`。
 
 ## 发现 API 的优先级（打样优先通用能力）
@@ -69,7 +69,7 @@ model = os.getenv("LLM_MODEL")
 `json` `re` `math` `os`(文件) `sys` `time` `datetime` `urllib` `base64` `hashlib`
 `collections` `functools` `itertools` `pathlib` `tempfile` `glob` `argparse`
 
-> 不要依赖第三方 **python 包**（除打样阶段的 `avp_local` 本身）。平台沙箱只保证标准库。
+> 不要依赖第三方 **python 包**。平台沙箱只保证标准库。
 > **例外 · 系统二进制**：`ffmpeg`/`ffprobe` 由沙箱提供，经 `subprocess` 调用（不是 python 包）——媒体探测/抽帧/转码/音频分析用它，不要引 `cv2`/`numpy`/`imageio-ffmpeg` 等第三方包（沙箱没有）。
 
 ## 命名对齐（迁移心智）
@@ -81,4 +81,4 @@ model = os.getenv("LLM_MODEL")
 | `blue_query_api_docs(api_code)` | Agent 的 `blue_query_api_docs` 工具调用 |
 | `register_async_poll(query_api, params, completion_config=…)` | Plugin 本地用 Runtime Core `wait_result`；平台内运行时使用其异步原语 |
 
-迁移时：脚本里的 `call_platform_api(...)` 行原样保留。`ideaswork skill push` 仅从上传副本中剥离完整的打样桥接块；平台自行维护 `__skill_meta.json`，返回 Builder draft 元数据，不自动发布。
+迁移时：脚本原样上传，`call_platform_api(...)` 行不变，没有桥接块可删。旧草稿遗留的标记桥接块仍会在 `ideaswork skill push` 的上传副本中剥离；平台自行维护 `__skill_meta.json`，返回 Builder draft 元数据，不自动发布。

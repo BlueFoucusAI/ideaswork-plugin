@@ -5,26 +5,16 @@
 业务编排（调哪些 API、顺序、依赖、异步等待）由 Agent 在 SKILL.md 里负责，
 脚本内**禁止**堆编排逻辑、**禁止** while+sleep 死等异步任务。
 
-用法（平台版与本地打样版同一份代码，无需改）：
-    python <脚本名>.py --model <model_name> --input <in.json> --output <out.json>
+用法（本地与平台是同一份代码，无需任何改写）：
+    --model <model_name> --input <in.json> --output <out.json>
 
-本地打样：用仓库顶层 ideaswork-cli 或制品内 runtime/bin/ideaswork；Skill 源目录不复制 runtime：
-    python tools/<脚本名>.py --model ... --output ...
-迁移平台：`ideaswork skill push` 会在上传副本中剥离下面「打样桥接块」整块，本地源文件保留
-（平台运行时注入同名 call_platform_api）。
+`call_platform_api(api_code, body)` 是运行时注入的内置函数，不要 import，也不要自己写桥接/兜底代码。
+本地验证用 `ideaswork runtime python --workspace <草稿目录> --script tools/<脚本名>.py --args-json @args.json`，
+它注入的函数与平台同名同签名；不要直接 `python tools/<脚本名>.py`（裸跑没有注入，会 NameError）。
 """
 import argparse
 import json
 import sys
-
-# === avp_local 打样桥接：迁移到平台时整块删除（平台运行时注入 call_platform_api）===
-try:
-    import avp_local as _ap
-    _ap.setup()
-    call_platform_api = _ap.call_platform_api
-except ImportError:
-    pass  # 平台运行时已注入同名内置函数 call_platform_api
-# === 打样桥接结束 ===
 
 
 def _die(msg: str, code: int = 1) -> None:
@@ -42,7 +32,7 @@ def run(args) -> dict:
         "model": args.model,
         # ... 按 blue_query_api_docs 得到的 request_schema 填必填字段 ...
     }
-    result = call_platform_api("<api_code>", body)
+    result = call_platform_api("<api_code>", body)  # noqa: F821 — 运行时注入的内置函数
     # 按真实 response 结构取值（schema 不可信时以一次真实调用为准）
     content = result["choices"][0]["message"]["content"]
     return json.loads(content)

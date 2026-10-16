@@ -23,7 +23,7 @@
 ### 2. <若需纯计算（LLM/TTS/整形），用薄脚本>
 
 从 `templates/thin_script.template.py` 起步，命名 `tools/<动作>.py`：
-- 命令行参数传配置，保留标记桥接块。
+- 命令行参数传配置；直接调用运行时注入的 `call_platform_api`，不需要桥接块。
 - 产出写 `--output` 文件，供 Agent 下一步引用。
 
 ## 产出
