@@ -12,7 +12,7 @@
    不以历史成功替代当前权限检查或 query-first；纯本地提炼/校验不要求获得远端执行权限。
 3. 对最关键的 1～2 个**廉价、可逆且已获授权**的调用，用 Remote MCP `blue_exec_api(api_code, body)` 验证请求和返回。独立 CLI 对应 `ideaswork api exec <api_code> --body '<JSON>'`。只在用户已授权的范围内执行；渲染、成片导出、批量生成、发布和删除需另行获得明确同意。Remote MCP 暂无 HITL 审批通道：`need_user_approval` API 被拒绝时停止并记录阻塞，不能改用聊天确认、CLI 或其他路径绕过。
 4. 异步请求只返回任务标识时，先查轮询 API 文档并确认完成条件。Codex Plugin 的本地等待使用 `ideaswork runtime wait-result`，由实际调用 Context 的 `create_runtime_lease` 提供短期 lease；命令接受 `--query-api-code`、`--params-json`、`--completion-json`、`--interval` 和 `--max-polls`。只把 lease 传给 Runtime Core parent，不写入草稿、日志或脚本。`status=lease_recovery_required` 时重新取得 lease；`timeout` 表示本段等待未完成，不表示任务失败。
-5. 薄脚本需要调用 `call_platform_api` 时，用 `ideaswork runtime python` 在草稿 workspace 中验证，并传入同一 Context 的 runtime lease。该命令负责向子进程提供受限 bridge；不要直接运行 `python tools/x.py` 来验证平台调用。脚本中的打样桥接块仅用于独立 CLI/旧本地打样，`skill push` 会在上传副本中剥离。
+5. 薄脚本需要调用 `call_platform_api` 时，用 `ideaswork runtime python` 在草稿 workspace 中验证，并传入同一 Context 的 runtime lease。该命令负责向子进程提供受限 bridge；不要直接运行 `python tools/x.py` 来验证平台调用（裸跑没有注入 `call_platform_api`）。脚本不需要桥接块：`runtime python` 注入的 `call_platform_api` 与平台同名同签名，验证过的脚本原样上传即可。
 6. 把真实请求、必要响应字段、参数来源、成本和剩余限制写进相应 sub_skill。schema 与实际行为不一致时以本次受授权调用的证据为准；仍无法验证的 API 留在「待验证 API」，不得写进可运行主链路。
 
 ## 注意事项

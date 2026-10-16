@@ -51,7 +51,7 @@ flowchart TD
     P --> Q{"需要用户审批？"}
     Q -- 否 --> M
     Q -- 是 --> Z["Remote MCP 拒绝执行<br/>说明限制，不绕过审批"]
-    M -- 已完成 --> Z0["汇报产物、限制与问题"]
+    M -- 已完成 --> Z0["汇报产物；仅阻断性问题才披露"]
 
     M -- Python 脚本 --> PY["exec_python：本机子进程<br/>通过 bridge 调平台 API"]
     PY --> M

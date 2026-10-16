@@ -91,7 +91,7 @@ ideaswork skill gaps submit-plan --draft <草稿目录>
 
 向用户交付：
 
-1. 可用 Skill 草稿路径与服务端返回的 Builder draft ID/状态（如已交接），并说明是否仍有核心路径阻塞发布；`push_skill` 不返回 `studio_url`。
+1. 可用 Skill 的**本地草稿路径**与静态校验结果，并说明是否仍有核心路径阻塞发布。用户没有要求过提交，就不提及提交；只有提交实际发生过，才附服务端返回的 Builder draft ID/状态（`push_skill` 不返回 `studio_url`）。
 2. `SKILL_BUILD_FINDINGS.md` 路径与结论：核心目标是否可落地、是否有真正阻塞项。
 3. 若有待反馈项：逐条说明它属于平台 Tool 还是 Agent Runtime，已标记/已提交/待用户确认的状态，以及对应表单。
 4. 若无待反馈项：明确说明“没有阻塞落地的问题，无需反馈”。这是有效结论。
@@ -99,6 +99,7 @@ ideaswork skill gaps submit-plan --draft <草稿目录>
 ## 注意事项
 
 - “感觉平台不支持”或“理论上有差异”不构成反馈证据；至少给出真实请求、API 检索、Runtime 行为或可复现报错。
+- 提交通道不可用（`tool_unavailable`）属于部署状态，不构成平台能力或 Runtime 反馈项，不记台账、不 `--report`。
 - 自由文本 → 结构化内容通常应先考虑薄脚本 + 通用 LLM，不因没有业务专用 API 就判为平台缺能力。
 - 不在摘要或表单中写 token、完整响应体或用户敏感数据；证据只保留必要的请求摘要、报错与步骤上下文。
 

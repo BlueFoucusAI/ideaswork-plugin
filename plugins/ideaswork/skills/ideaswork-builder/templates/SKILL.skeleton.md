@@ -32,7 +32,7 @@ sub_skill_01_<阶段>   — <做什么>
 ## 关键约定
 
 - 参数来源用自然语言描述：`<当前 project_id>`、`<上一步返回的 xxx>`，**不要写 Python 伪代码**。
-- 薄脚本只做纯计算，从 `templates/thin_script.template.py` 起步，保留标记桥接块。
+- 薄脚本只做纯计算，从 `templates/thin_script.template.py` 起步；直接调用运行时注入的 `call_platform_api`，不需要桥接块。
 - 异步参数（delay_minutes / poll_interval / max_polls）按任务量级估，草稿里注明「上线前用真实耗时校准」。
 
 ## 待验证 API
