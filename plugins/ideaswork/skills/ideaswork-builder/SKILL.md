@@ -5,7 +5,7 @@ description: 用户明确要求把已完成的 IdeasWork 能力组合或运行�
 
 # IdeasWork Builder
 
-> 本制品不内置原生程序：首次需要本地 Runtime Core 命令前，先读 [references/PLUGIN_RUNTIME.md](references/PLUGIN_RUNTIME.md) 检查并按指引安装。
+> 本制品不内置原生程序：首次需要本地 Runtime Core 命令前，先读 [references/PLUGIN_RUNTIME.md](references/PLUGIN_RUNTIME.md) 检查并按指引安装；Windows 原生环境用其中的 `.cmd` 写法，不要用 `sh`。
 
 ## 执行入口选择（先于后续工具指引）
 

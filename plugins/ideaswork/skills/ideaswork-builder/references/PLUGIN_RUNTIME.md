@@ -3,8 +3,21 @@
 本插件不内置原生程序。只有下列本地命令需要它：`runtime checkout`、`runtime python`、`runtime wait-result`、
 `material upload`。Remote MCP 的目录查询、API 调用等不依赖它，不要为这些先安装。
 
-插件固定使用 npm 包 `@ideaswork/cli-dev@2026.1016.140911-dev`（渠道 `dev`），版本与插件一致。
+插件固定使用 npm 包 `@ideaswork/cli-dev@2026.1019.134946-dev`（渠道 `dev`），版本与插件一致。
 不要改用其他版本，也不要使用 PATH 上来源不明的 `ideaswork`。
+
+## Windows（原生，无需 WSL）
+
+本文与 Skill 里的 `sh <plugin_root>/runtime/bin/ideaswork` 在 Windows 原生环境换成 `.cmd` 启动脚本：
+
+- cmd.exe：`<plugin_root>\runtime\bin\ideaswork.cmd ...`
+- PowerShell：`& "<plugin_root>\runtime\bin\ideaswork.cmd" ...`
+
+cmd.exe 会改写引号、`%` 和 `&`，所以 Windows 上**不要把 JSON 直接写在命令行**：先把 JSON 写进工作区内的
+临时文件，再用 `@文件` 传入 `--linked-json`、`--tasks-json`、`--params-json`、`--completion-json`、`--body`、
+`--args-json`、`--python-path-json`；lease 仍用 `--runtime-lease-stdin` 从标准输入传，不进命令行。
+`runtime python` 需要本机 Python 3.10+，依次查找 `python3`、`python`、`py -3`（会跳过 Microsoft Store 的占位程序），
+也可用 `--python-executable` 指定。
 
 ## 先检查
 
@@ -12,12 +25,12 @@
 sh <plugin_root>/runtime/bin/ideaswork --json version
 ```
 
-- 成功且 `version` 为 `2026.1016.140911-dev`：直接使用 Skill 里的 runtime 命令。
+- 成功且 `version` 为 `2026.1019.134946-dev`：直接使用 Skill 里的 runtime 命令。
 - 失败（`native_binary_missing`、找不到 npx、版本不一致）：按下面安装。
 
 ## 安装（先让用户知情）
 
-简短告知用户：需要 Node.js 22+ 和网络；会全局安装 `@ideaswork/cli-dev@2026.1016.140911-dev`，并把校验过 SHA-256 的原生程序
+简短告知用户：需要 Node.js 22+ 和网络；会全局安装 `@ideaswork/cli-dev@2026.1019.134946-dev`，并把校验过 SHA-256 的原生程序
 下载到 `~/.ideaswork/npm/dev/`；不会登录，也不会读取或修改 IdeasWork 登录状态。
 用户拒绝则不安装，并如实说明依赖本地命令的步骤无法执行。
 
