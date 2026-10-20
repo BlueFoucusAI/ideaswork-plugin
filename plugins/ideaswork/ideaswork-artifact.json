@@ -1,12 +1,12 @@
 {
   "contract_version": 1,
   "name": "ideaswork",
-  "version": "2026.1016.173921",
+  "version": "2026.1020.161934",
   "target": "plugin",
   "artifact_kind": "codex_plugin",
   "runtime": {
     "distribution": "ideaswork-cli",
-    "version": "2026.1016.173921",
+    "version": "2026.1020.161934",
     "implementation": "native-go",
     "platforms": [
       "darwin-arm64",
@@ -22,10 +22,10 @@
     "delivery": "npm",
     "npm": {
       "package": "@ideaswork/cli",
-      "version": "2026.1016.173921",
+      "version": "2026.1020.161934",
       "channel": "release",
       "tag": "latest",
-      "spec": "@ideaswork/cli@2026.1016.173921"
+      "spec": "@ideaswork/cli@2026.1020.161934"
     }
   },
   "components": {

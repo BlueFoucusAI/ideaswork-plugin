@@ -10,5 +10,5 @@ rem Private, empty npm project root: never read .npmrc or node_modules from the 
 set "IW_PREFIX=%TEMP%\ideaswork-npx"
 if defined USERPROFILE set "IW_PREFIX=%USERPROFILE%\.ideaswork\npx"
 if not exist "%IW_PREFIX%" mkdir "%IW_PREFIX%"
-call npx --yes --prefer-offline --prefix "%IW_PREFIX%" "@ideaswork/cli@2026.1016.173921" --runtime-only %*
+call npx --yes --prefer-offline --prefix "%IW_PREFIX%" "@ideaswork/cli@2026.1020.161934" --runtime-only %*
 exit /b %ERRORLEVEL%
