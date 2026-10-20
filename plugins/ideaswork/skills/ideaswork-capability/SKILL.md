@@ -98,7 +98,9 @@ description: 通过 IdeasWork Remote MCP 或独立 CLI 查询、调用和组合�
    调用 `blue_exec_api`。
 5. 若返回异步任务 ID，统一使用本地 Runtime Core `sh <plugin_root>/runtime/bin/ideaswork runtime wait-result` 等待并获取结果。
    使用 `wait_result_hint` 的查询 API 和完成条件；其文档若还没查询过就先查，按创建响应中的真实任务 ID
-   组织查询参数；缺少查询 API 时，仅在 `task_status` 已授权且文档确认适用时使用它。
+   组织查询参数；缺少查询 API，或 hint 的查询 API 查不到结果（如 Remote MCP 下 `t2v_session_task_create`
+的 `t2v_session_task_query` 按会话恒为空，应用 `data.data.base_task_id` 查 `task_status`）时，
+仅在 `task_status` 已授权且文档确认适用时使用它。
    需要 lease 时调用 `create_runtime_lease` 取得当前 capability Context 的短期 lease（已确定是异步时可与
    `blue_exec_api` 同轮发出），有效期间串行复用；
    把 `runtime_endpoint` / `runtime_lease` 仅传给 Runtime Core parent，不写入文件或普通日志。

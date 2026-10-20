@@ -309,6 +309,13 @@ CLI 输出时，才允许降级到 CLI。
 未提供完整信息时先查询 API 文档和 Skill，不能把提交成功、事件订阅或唤醒提示当作最终结果。
 若没有可用查询 API，停止并说明无法在当前宿主取得异步结果。
 
+提醒：任何异步任务，若按 Skill 原语或 `wait_result_hint` 指向的查询 API 查不到结果，可改用
+`task_status` 尝试，`task_id` 取创建响应里的真实任务 ID，完成条件看 `data.status`（可加
+`fail_if` 判失败）。典型如 Remote MCP 下的 `t2v_session_task_create`：会话里没有 generation 行，
+响应无 `avp_event_id`，hint 里的 `t2v_session_task_query` 按会话查恒为空，应改用
+`task_status`，`task_id` 取 `data.data.base_task_id`。`task_status` 不返回 `cdn_url`，需要时再查
+`task_detail`；若报缺少 `project_id`，补当前 Context 的项目 ID。仍查不到按上段停止并说明。
+
 - 单任务使用 `--query-api-code`、`--params-json`、`--completion-json`。
 - 同一批多任务使用**一次** `--tasks-json`，每项包含 `key / query_api_code / query_params /
   completion_config`，并用 `--completion-policy all|any|cnt:N` 汇总；Runtime Core 会在每轮内串行查询，

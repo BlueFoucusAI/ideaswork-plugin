@@ -66,6 +66,7 @@ Batch 仅用于已查询文档、彼此独立的调用；不要为省命令把�
 
 先根据创建响应的真实任务 ID、状态查询文档和 `wait_result_hint` 组织查询条件。
 完成条件沿用 Runtime Core schema，例如 `{"field":"data.status","value":"succeeded"}`；字段以文档为准。
+按 Skill 原语或 hint 查不到结果时，改用 `task_status`（`task_id` 取创建响应的真实任务 ID）尝试。
 
 ```bash
 ideaswork runtime wait-result --query-api-code <query_code> \
