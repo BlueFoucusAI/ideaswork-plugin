@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "ideaswork",
-  "version": "2026.1020.161455-dev",
+  "version": "2026.1021.135706-dev",
   "description": "Use platform capabilities, run published Skills, and build reusable IdeasWork Skills locally in Codex.",
   "author": {
     "name": "BlueAI",
