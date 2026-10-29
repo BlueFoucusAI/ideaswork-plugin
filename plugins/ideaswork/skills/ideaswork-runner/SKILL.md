@@ -143,7 +143,7 @@ App 能完成的筛选或素材选择不要改成模型手写列表；只有明�
 
 | MCP App / 入口 | 用户可完成什么 | Agent 必须怎么做 |
 |---|---|---|
-| **Skill Catalog**：`browse_skills()` | 浏览当前账号可见的已发布远端 Skill；按**Skill 分类**、名称、来源、状态、描述筛选；本地翻页；选择一个 Skill。分类 chip 是发现 Skill 的首选入口，卡片上的 `category` 是该 Skill 的权威分类。 | 用户问“有什么 Skill”“有哪些分类”“按类别找/推荐 Skill”时，**只调用一次且不传参数**，然后结束本轮等待用户在 Catalog 中按分类或搜索选择。不要手写一份分类/Skill 清单，不要调用 `get_skill_catalog_records`，不要为翻页或换分类再次调用 `browse_skills`。 |
+| **Skill Catalog**：`browse_skills()` | 浏览当前账号可见的已发布远端 Skill；按**Skill 分类**、名称、来源、状态、描述筛选；本地翻页；选择一个 Skill。分类 chip 是发现 Skill 的首选入口，卡片上的 `category` 是该 Skill 的权威分类。 | 用户问“有什么 Skill”“有哪些分类”“按类别找/推荐 Skill”时，**只调用一次且不传参数**，然后结束本轮等待用户在 Catalog 中按分类或搜索选择。不要手写一份分类/Skill 清单，不要调用 `get_skill_catalog_records`，不要为翻页或换分类再次调用 `browse_skills`。目录的「我的 Skill」列出用户自己的全部 Skill（含草稿、已禁用）；点「管理」会以含 `skill_manage_requested` 的用户消息回到对话，此时不拉取运行，改用 `list_skill_versions` / `manage_skill_version` / `update_skill` 继续，影响他人的变更（设为当前版本、启用、`derivable`、子技能）先让用户明确确认，详见 ideaswork-builder 的「提交之后：属主管理」。 |
 | **工作区切换**：`browse_contexts()` + `ask_user_interact()` | 用户主动换工作区，或默认工作区不可用时另选团队/项目。 | 仅在用户明确要求换团队/项目，或服务端明确要求选择工作区时调用；初始化或仅切 mode 不弹表单。需选择时重新查询，用本次名称构造 `select`，等待提交后传对应的本次 `context_ref`；不使用缓存 ref，也不替用户猜选。 |
 | **动态表单（含素材选择）**：`ask_user_interact()` | 填写结构化字段；`built_in` + `material_picker` 字段在表单内二级展开素材库，完成搜索、筛选、翻页和选择。 | 需要素材时先确认 active Context，再把 `accept` 等参数放入素材字段，与其他输入一次收集。调用后结束本轮；用户确认/取消会以 `interaction_response` 普通用户消息回到对话，直接据其 `action` 和 `data` 继续，不调用提交/状态工具。不得猜测用户选择。 |
 | **素材库取数**：`browse_materials()` | 为表单内素材字段提供只读分页数据，**本身不渲染选择器**。 | 正常选素材时不由 Agent 调用；仅收到表单 App 的 `material_pick_request`（宿主不支持 App 内取数）后，在对话中列出候选，等用户文字确认，再将所选素材写回字段 `value`、其余字段按 `draft` 回填，重新调用 `ask_user_interact`。 |

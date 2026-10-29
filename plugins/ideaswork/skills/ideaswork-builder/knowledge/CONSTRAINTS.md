@@ -81,4 +81,4 @@ model = os.getenv("LLM_MODEL")
 | `blue_query_api_docs(api_code)` | Agent 的 `blue_query_api_docs` 工具调用 |
 | `register_async_poll(query_api, params, completion_config=…)` | Plugin 本地用 Runtime Core `wait_result`；平台内运行时使用其异步原语 |
 
-迁移时：脚本原样上传，`call_platform_api(...)` 行不变，没有桥接块可删。旧草稿遗留的标记桥接块仍会在 `ideaswork skill push` 的上传副本中剥离；平台自行维护 `__skill_meta.json`，返回 Builder draft 元数据，不自动发布。
+迁移时：脚本原样上传，`call_platform_api(...)` 行不变，没有桥接块可删。旧草稿遗留的标记桥接块仍会在 `ideaswork skill push` 的上传副本中剥离；平台自行维护 `__skill_meta.json`，推送只生成待审核版本（由属主在 Studio 版本历史接受），不自动发布。

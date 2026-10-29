@@ -99,15 +99,21 @@ Python 平台验证取得并复用实际调用 Context 的 runtime lease，不�
 
 用户明确要求提交时，才按保守策略处理，不预设通道是否可用：
 
-- 先探测再授权。Plugin 看当前 MCP 工具清单有无 `push_skill`；CLI 直接运行
-  `ideaswork skill push <skill_dir> --name <name>`，它先本地打包校验，再探测工具；探测不到返回
-  `error_code=tool_unavailable / next_action=keep_local_draft`，且不会切换 Context。
+- Skill 推送**不再是 MCP 工具**（`push_skill` 已移除），而是用 Runtime lease 鉴权的 HTTP 上传，与 `material upload` 同一套
+  传输。先探测再授权：Plugin 调 `create_runtime_lease`（或沿用 `pull_skill` 返回的 lease），载荷里有 `skill_push_endpoint`
+  才说明该账号/部署开放推送，不再用工具清单判断；CLI 直接运行 `ideaswork skill push <skill_dir> --name <name>`，它先本地
+  打包校验，再取 lease 检查该字段；缺失返回 `error_code=tool_unavailable / next_action=keep_local_draft`。
 - 通道不存在、scope 不足或业务权限拒绝时：保留本地草稿，如实说明这次没能提交及原因，不换身份、入口或裸 HTTP 绕过，
   不重试。提交通道的可用性属于部署状态，不属于 Skill 构建问题：不记入 gaps、不加 `--report`。
-- 通道存在时，提交前检查本次用户授权、目标工作区、实际 scope 和业务写入权限（`skill.write` 不等于业务权限）。
-  `push_skill` 只创建团队 Builder draft，不 publish、不覆盖已发布版本、不保证返回 Studio 链接。
-  CLI 按现有契约切换到 `builder` Context 并排除本地台账；脚本无需改写，旧草稿遗留的桥接块会在上传副本里剥离。
-  scope 不足按服务端提示补授权；业务权限不足请用户申请，不靠重复登录。正式发布是独立高权限动作。
+- 通道存在时，提交前检查本次用户授权、目标团队（恒为 lease 的 Context）、实际 scope 和业务写入权限（`skill.write` 不等于业务权限）。
+  推送结果是**待审核版本（pending）**，不是 draft：当前运行内容不变，属主在 Studio 版本历史里接受后才生效；不 publish、
+  不覆盖已发布版本、不保证返回 Studio 链接。CLI 按需使用已有 Context（没有时才切到 `builder`）并排除本地台账；
+  脚本无需改写，旧草稿遗留的桥接块会在上传副本里剥离。scope 不足按服务端提示补授权；业务权限不足请用户申请，不靠重复登录。
+  正式发布是独立高权限动作。
+- `--set-current`（立即设为当前版本）和 `--visibility team`（新 Skill 分享给团队）会改变他人实际运行或可见的内容，服务端无法确认勾选来自用户本人：
+  **Agent 不得主动添加**，默认都是 false。需要时先问用户（Plugin 用 `ask_user_interact`，CLI 在对话里问），得到明确同意才加；
+  `--visibility` 只用于新建 Skill，缺省 private（仅自己）；更新已有 Skill（`--skill-id`）时永远不加 `--visibility`，改分享范围用 `update_skill`。`global` 不能通过插件或 CLI 设置。
+  具体命令、结果解读与提交后的属主管理见 `sub_skill_05_generate/SKILL.md` §4。
 
 ## 阶段索引
 
