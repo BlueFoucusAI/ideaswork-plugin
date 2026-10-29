@@ -2,7 +2,7 @@
 # Thin Runtime Core launcher. The native program is not bundled: it is installed by the npm package
 # pinned to this plugin's exact version (see skills/*/references/PLUGIN_RUNTIME.md).
 set -eu
-spec='@ideaswork/cli-dev@2026.1029.143733-dev'
+spec='@ideaswork/cli-dev@2026.1029.192233-dev'
 if ! command -v npx >/dev/null 2>&1; then
   echo "IdeasWork: Node.js 22+ (npx) is required for the local Runtime Core." >&2
   exit 2
@@ -19,4 +19,33 @@ else
   prefix="$(mktemp -d 2>/dev/null ||
     node -p 'require("fs").mkdtempSync(require("path").join(require("os").tmpdir(), "ideaswork-npx-"))')"
 fi
+# Fast path: the pinned package is already installed under the private prefix, so run it directly. npx
+# would still ask the registry for it even with --prefer-offline and, without network (a sandbox), fail with
+# a wall of npm errors although everything needed is on disk. Requiring the exact version keeps the pin.
+package="${spec%@*}"
+pinned="${spec##*@}"
+run_installed() {
+  dir="$prefix/lib/node_modules/$package"
+  [ -f "$dir/package.json" ] || return 0
+  entry="$(node -e 'const p=require(process.argv[1]);const b=typeof p.bin==="string"?p.bin:Object.values(p.bin||{})[0];if(p.version===process.argv[2]&&b)process.stdout.write(b)' "$dir/package.json" "$pinned" 2>/dev/null || true)"
+  [ -n "$entry" ] && [ -f "$dir/$entry" ] && exec node "$dir/$entry" --runtime-only "$@"
+  return 0
+}
+run_installed "$@"
+# First run of this version: let npx install it into the prefix, with its output captured so that a missing
+# network is reported as one. `--help` is answered by the launcher itself whatever the native program's
+# state, so this fails only when npx could not get the package. stdin is closed here; the real command
+# below keeps the caller's stdin (the lease).
+if ! probe="$(npx --yes --prefer-offline --prefix "$prefix" "$spec" --runtime-only --help </dev/null 2>&1)"; then
+  case "$probe" in
+    *ENOTFOUND*|*EAI_AGAIN*|*ECONNREFUSED*|*ECONNRESET*|*ETIMEDOUT*|*ENETUNREACH*|*EHOSTUNREACH*|*"network request"*|*"network connectivity"*)
+      echo "IdeasWork: 无法下载本地 Runtime Core（$spec）：当前环境没有网络（沙箱里常见）。" >&2
+      echo "  请让用户放开网络权限，或先在有网络的终端运行一次本命令完成安装，然后重试；不要改用其他版本。" >&2 ;;
+    *)
+      echo "IdeasWork: 本地 Runtime Core（$spec）安装失败：" >&2 ;;
+  esac
+  printf '%s\n' "$probe" | tail -n 8 >&2
+  exit 1
+fi
+run_installed "$@"
 exec npx --yes --prefer-offline --prefix "$prefix" "$spec" --runtime-only "$@"

@@ -14,7 +14,8 @@ CLI 在 `wait-result` 内部自己取 lease，没有单独的 lease 步骤；互
    正式制品环境由渠道固定，不支持 `--env`。
 2. 本会话已确认 capability Context 且工作区未变，就不再检查。无 active 或 mode 不符时执行
    `ideaswork context use --mode capability --reuse-session --json --task <task>`，保留当前/使用 OAuth 默认项目。
-   要换工作区，先 `context list`，让用户确认本次候选，再传本次 `context_ref`。
+   **默认不切换工作区。** 要换工作区，先 `context list`，把候选和“从 A → 到 B”展示给用户并得到同意，再传本次 `context_ref`
+   并加 `--confirm-switch`（不带会被拒绝，不得为让命令通过自行添加；找不到 API/权限不足不是切换的理由）。
 3. `ideaswork api list --json --task <task>` 仅列当前已授权 API，不是全量注册表；已知关键词时加 `--query "<词>"`
    在本地过滤，缩小输出。已知 `api_code` 或同一 Context 内已列过就不重复 list。
    `ideaswork api docs <code> --json --task <task>` 查询 schema（同一 Context 内已查过的 code 不重复查），再用

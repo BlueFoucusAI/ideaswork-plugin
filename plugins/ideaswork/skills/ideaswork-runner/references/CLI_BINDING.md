@@ -35,9 +35,11 @@ CLI 内部仍连接同一 Remote MCP 服务，不使用旧 Local MCP、`local_rp
    CLI 复用当前工作区或绑定 OAuth 默认工作区，建立 `skill_runner` Context，并物化主包、全部 linked、
    受管 CLAUDE.md 和 API 清单；直接拉取并继续，不先要求选择工作区。
    默认目录 `.avp_run/task-<hash>/<name>/`；实际路径以返回值为准，不硬编码。
-3. 仅在用户明确更换工作区，或服务端明确要求选择工作区（默认项目缺失/不可访问）时，先
-   `ideaswork context list --json --task <task>`，把本次团队/项目候选展示给用户。
-   用户确认后 `ideaswork context use <本次context_ref> --mode skill_runner --task <task> --json`。
+3. **默认不切换工作区。** 仅在用户明确更换工作区，或服务端明确要求选择工作区（默认项目缺失/不可访问）时，先
+   `ideaswork context list --json --task <task>`，把本次团队/项目候选和“从 A → 到 B”展示给用户。
+   用户确认后 `ideaswork context use <本次context_ref> --mode skill_runner --confirm-switch --task <task> --json`；
+   不带 `--confirm-switch` 会被拒绝（`workspace_switch_requires_confirmation`），**不得为让命令通过自行添加**。
+   找不到 Skill、权限不足都不是切换的理由，如实告诉用户即可。
    同工作区仅切 mode 可省略 ref，并加 `--reuse-session`；不为普通后续步骤反复新开平台会话。
 4. 按返回的 `workspace_dir / runtime_dir` 读取受管 CLAUDE.md 和主 SKILL.md，子技能在对应阶段才读。
    Agent 负责解释并编排 Skill；没有 `ideaswork skill run`，不要猜测这个命令。

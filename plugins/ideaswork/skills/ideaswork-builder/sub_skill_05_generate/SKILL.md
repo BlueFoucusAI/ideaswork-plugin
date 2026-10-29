@@ -37,7 +37,7 @@
 本地用 `ideaswork runtime python` 验证时，Runtime Core 注入的同名函数与平台行为一致，所以验证过的脚本可以原样上传。
 不要直接 `python tools/x.py`（裸跑没有注入，会 `NameError`）。
 
-- **本地通过不等于平台一定通过**：平台另有静态安全审查，本地不执行。以 `ideaswork skill validate` 的禁用项检查
+- **本地通过不等于平台一定通过**：平台另有静态安全审查，本地不执行（`skill validate` 已覆盖推送闸门的内容校验，包括 `skill_sop.json` 的结构与引用）。以 `ideaswork skill validate` 的禁用项检查
   和 `knowledge/CONSTRAINTS.md` 为准，不要用 `os.environ`、第三方包、网络服务等。
 - 旧草稿里的 `# === avp_local 打样桥接` 块已不需要，删除即可；留着不会出错，`skill validate` 仍接受它，
   `skill push` 会在**上传副本**里剥离（残缺、重复或顺序错误的标记会被拒绝打包，需修复或删除）。
@@ -79,7 +79,7 @@ ideaswork skill push <草稿目录> --name <skill-name> --category <category> --
 ```
 
   沿用当前已确认的团队和已有 Context（没有 active context 时才切到 `builder`）；需要换团队时才先 `context list --json --task <task>`
-  让用户确认本次候选，再 `context use <本次确认的context_ref> --mode builder --json --task <task>`。
+  把“从 A → 到 B”和候选告诉用户并得到同意，再 `context use <本次确认的context_ref> --mode builder --confirm-switch --json --task <task>`（不要因推送失败而自行换团队）。
 
 两种入口的其余选项相同：`--skill-id <id>` 给自己名下的已有 Skill 加新版本（此时 `--name` 可省，仅属主、限同一团队，不靠重名覆盖）；
 `--category`（缺省由服务端定为 general）、`--description`、`--version`（semver；缺省为下一个补丁号，新建为 1.0.0）、`--changelog`。
@@ -110,7 +110,11 @@ ideaswork skill push <草稿目录> --name <skill-name> --category <category> --
 - `runtime_lease_*`（过期、额度用尽、scope 不足）/ `push_requires_team`（当前 Context 没有团队）：按 `next_action` 重新获取 lease 或补授权/换团队。
 - `storage_failed`（`retryable=true`）：服务端已回滚，可稍后重试一次。
 - **`push_result_unknown`**（退出码 6，网络中断或网关 5xx 之后）：结果未知，**不自动重试**，先让用户在「我的 Skill」或 Studio 版本历史里
-  确认是否已生成版本，再决定；没有服务端确认就不能声称已提交。
+  确认是否已生成版本，再决定；没有服务端确认就不能声称已提交。OAuth CLI 可用 `ideaswork skill versions <skill_id> --json` 直接查；
+  Plugin 用 Remote MCP 的 `list_skill_versions`。
+- **`validation_failed`**（退出码 1）：推送前的本地闸门或服务端校验未通过，消息里逐条列出问题（含 `skill_sop.json` 的字段路径）；修好草稿再推，不要改版本号。
+- **`push_network_unreachable`**（退出码 1，`retryable=true`）：连接都没建立，请求**没有发出**，草稿与线上版本不变；不要去查版本历史，
+  也不要换版本号乱试。多半是沙箱没有网络：向用户说明，申请放开该命令的网络权限后原样重推一次。
 缺少 OAuth scope 按服务端实际补充授权提示处理；有 scope 但业务权限不足应申请业务权限，不反复登录。
 Plugin/CLI 凭据不互换，不自动切通道重试。
 

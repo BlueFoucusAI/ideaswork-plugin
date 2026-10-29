@@ -63,6 +63,23 @@ description: IdeasWork（心影）线上已发布 Skill 的**首要发现与运�
 4. 若 Remote MCP tools 尚未注入，先按下一节的 OAuth 登录门建立 Codex MCP connection；完成前不要用
    CLI 本地登录态或 `List MCP resources` 代替 Catalog 查询。
 
+## 工作区边界（默认不切换）
+
+默认只在**当前工作区**里工作：有 active Context 就用它，没有就用登录时的 OAuth 默认团队/项目。
+
+- **不得自行更换团队或项目。** 找不到 Skill、API 没权限、素材不在这里、想“试试别的项目”，都不构成理由：如实告诉用户，
+  问他是否要换，不要自己去 `browse_contexts` / `context list` 找出路。
+- **只有两种情况会切换**：① 用户在本轮明确要求切换（点名了团队/项目）；② 当前工作区确实无法继续（默认项目缺失或不可访问、
+  服务端明确要求选择工作区、原 Context 丢失需要恢复）。第②种必须**先停下**，说明原因并列出本次候选，等用户明确同意；
+  不得静默切换，不得替用户猜选，不得回落到 OAuth 默认项目冒充恢复。
+- **切换前把“从 A → 到 B”（团队/项目名称）告诉用户并得到同意**。一次同意只对应这一次切换；之后要回原工作区同样要问。
+  切换后用 `get_current_context`（CLI：`ideaswork context`）再确认一次当前工作区。
+- **不算切换、无需询问**：省略 `context_ref` 初始化 Context、只切 mode、复用当前会话。
+- **CLI 有硬门**：`context use <ref>`、`team use`、`project use` 切到与当前不同的工作区时会被拒绝，返回
+  `workspace_switch_requires_confirmation`（消息里有当前与目标名称）。用户同意后才加 `--confirm-switch` 重跑；
+  用户本轮自己明确要求切换，视同已同意，可直接加。**不得为了让命令通过而自行添加。** MCP 的
+  `switch_context(context_ref=…)` 服务端目前不强制，同样遵守本条。
+
 ## 前置条件（按顺序执行）
 
 ### 0. 首次使用的 OAuth 登录门
@@ -94,7 +111,7 @@ description: IdeasWork（心影）线上已发布 Skill 的**首要发现与运�
      不设 `new_session=true`；由服务端复用当前工作区或使用 OAuth 默认团队/项目。绑定成功后立即 `pull_skill`。
      **不得仅因 `active_context` 为空或 mode 不符就弹工作区选择表单**；使用登录携带的默认值不是从候选列表猜选。
    - 只有用户明确要求换团队/项目，或服务端明确要求选择工作区（默认项目缺失/不可访问）时，才调用
-     `browse_contexts` 获取最新候选，再用本次团队/项目名称构造 `ask_user_interact` 的 `select`，
+     `browse_contexts` 获取最新候选（见上文「工作区边界」，先问用户，不静默切换），再用本次团队/项目名称构造 `ask_user_interact` 的 `select`，
      结束本轮等待提交。只把用户所选项对应的本次 `context_ref` 传给 `switch_context`，不用旧卡片或缓存 ref，
      不替用户猜选其他工作区。其他认证/权限失败按实际错误处理，不把选工作区当作通用修复。
    - 只有用户明确要求新会话才设置 `new_session=true`。若明确报告原 Context 丢失，先恢复原工作区，
