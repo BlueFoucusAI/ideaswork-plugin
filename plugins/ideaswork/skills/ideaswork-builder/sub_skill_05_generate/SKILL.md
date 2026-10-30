@@ -14,11 +14,12 @@
 <skill-name>/
 ├── SKILL.md                    # frontmatter(name/description)、端到端流程、关键约束
 ├── api.json                    # api_code → 一句话用途说明的 dict；__ 前缀键为注释
+├── skill_sop.json              # 心影图谱（steps + edges），向用户展示流程；不是执行真源
 ├── sub_skill_01_xxx/SKILL.md   # 按业务阶段拆分
 └── tools/*.py                  # 仅在确有计算或 prompt 工程时使用
 ```
 
-用 `templates/SKILL.skeleton.md`、`templates/api.skeleton.json` 和 `templates/thin_script.template.py` 作为结构参考。Agent 负责业务编排；脚本只做必要的计算或单次平台调用。不要把 CLI、`avp_local` 包、Adapter、token、缓存或问题台账复制进草稿，也不要在脚本里写桥接/兜底代码。
+用 `templates/SKILL.skeleton.md`、`templates/api.skeleton.json`、`templates/skill_sop.skeleton.json` 和 `templates/thin_script.template.py` 作为结构参考。Agent 负责业务编排；脚本只做必要的计算或单次平台调用。不要把 CLI、`avp_local` 包、Adapter、token、缓存或问题台账复制进草稿，也不要在脚本里写桥接/兜底代码。
 
 `api.json` **统一用 dict，不生成字符串数组**。每个已查文档并验证过的 code 写一句实际用途；`__` 前缀键（如 `__desc_01`）用于分组/注释，不计入白名单。转化旧数组时逐项补用途，不把注释当成 API：
 
@@ -30,6 +31,8 @@
 ```
 
 示例 code 只有真实查文档并验证后才能用于草稿。`api.json` 是 DB `api_codes` 的唯一文件来源，不另交一份独立白名单；DB 字段与工具返回的 `api_codes` 数组不因此改为 dict。文件不能为 `{}`；若确实不调用平台 API，写 `{"__desc": "本技能不依赖平台 API"}`。所有用途/说明值必须是非空字符串；删除模板占位符和 `__comment_*` 模板说明，实际分组注释可保留。
+
+**心影图谱 `skill_sop.json`**：和 Skill 一起生成，让用户看清流程。先读 `knowledge/SKILL_SOP.md`，以 `templates/skill_sop.skeleton.json` 为骨架，按本 Skill 的阶段设计改写：Step 对应业务阶段（有子技能文档的写 `skill_key`），Action 对应阶段内用户可理解的动作（直接 API、脚本、表单写进 `capabilities` / `user_interact_form`）。`status` 按实际进展写，只有 sub_skill_04 真实跑通的部分才写 `verified`。图谱只用于展示：执行真源仍是 `SKILL.md` 与子技能文件，之后改了阶段、脚本、表单或 API，要同步改图谱。
 
 ### 2. 脚本本地与平台是同一份代码
 
@@ -48,7 +51,12 @@
 ideaswork skill validate <草稿目录>
 ```
 
-修复全部 FAIL。核对 `api.json` 是用途说明 dict，`__` 前缀键不计入 API，业务 code 都已查过文档、核心路径没有未授权或待验证的 API；对关键调用保留 sub_skill_04 的真实请求示例。静态校验不会证明平台 API 实际可调用。
+修复全部 FAIL。核对 `api.json` 是用途说明 dict，`__` 前缀键不计入 API，业务 code 都已查过文档、核心路径没有未授权或待验证的 API；对关键调用保留 sub_skill_04 的真实请求示例。静态校验不会证明平台 API 实际可调用。`ideaswork skill validate` 会校验 `skill_sop.json` 的结构（失败即 FAIL，等同 `skill push` 会被服务端拒绝），但不检查对齐（子技能、脚本、表单、API 是否已实现）；图谱的预览与对齐检查按下面方式进行。
+
+**图谱预览与校验**（生成了 `skill_sop.json` 就做；先给用户看图谱，再交付草稿）：
+
+- **Plugin**：调用 Remote MCP `show_skill_sop`。`sop_json` 传 `skill_sop.json` 原文（不改写），`skill_name` 传 Skill 名，`files` 传草稿目录内的相对文件清单、`api_codes` 传 `api.json` 的业务 code（不含 `__` 前缀键），这样服务端才能检查子技能、脚本、表单和 API 是否已实现；不传 `files` 只做结构校验。结构错误按返回的 `path` 修复后重试；对齐警告逐项补齐，或向用户说明为何暂缺。图谱在宿主里渲染为默认 / 高级两种视图，用户在图谱上点选阶段、动作或连线留下的意见会作为新消息发回对话，按意见修改后再次调用。调用后停止本轮，等用户反馈。
+- **独立 CLI**：`ideaswork skill sop <草稿目录>` 在本地输出 Mermaid 概览（Step 级），无交互、无评论、不联网，也不校验结构（结构用 `skill validate`）。把 Mermaid 源码或摘要展示给用户即可。
 
 ### 4. 提交到团队（仅在用户明确要求时；不是本地交付前提）
 
@@ -142,4 +150,4 @@ Plugin/CLI 凭据不互换，不自动切通道重试。
 
 ## 产出
 
-通过静态校验的本地 Skill 草稿。只有实际提交成功时才附服务端返回的 Skill/版本元数据（默认是待审核版本）；没有服务端返回就只报告本地草稿，不声称已交接或已发布。
+通过静态校验的本地 Skill 草稿（含 `skill_sop.json`，并已向用户展示图谱）。只有实际提交成功时才附服务端返回的 Skill/版本元数据（默认是待审核版本）；没有服务端返回就只报告本地草稿，不声称已交接或已发布。

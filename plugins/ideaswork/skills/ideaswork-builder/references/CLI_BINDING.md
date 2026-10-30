@@ -37,6 +37,7 @@ conversion/sampling 模式、渐进加载、用户授权、API grant 或 draft/p
   核实一次推送生成了什么：`ideaswork skill versions <skill_id> --json`（只读，仅 OAuth CLI；新建 Skill 不知道 id 时先 `skill list --query <名称>`）。
   CLI 没有接受/回滚/改分享范围的命令，这些在 Skill Studio 或 Plugin 的属主管理工具里做。
   Plugin 任务不能自动转 CLI OAuth 绕过；已具 scope 但业务权限不足不重复 login，按真实拒绝引导申请业务权限。
+- 心影图谱预览用 `skill sop <草稿目录>`：本地输出 Mermaid 概览，不联网、无交互与评论、不校验结构（结构用 `skill validate`）；需要交互视图和对齐检查时使用 Plugin 的 `show_skill_sop`。已推送的 Skill 用 `skill sop --skill-id <id> [--version-id <id>]`。
 
 以上命令均通过 `ideaswork` 调用并复用原 `--task`。`--json` 成功保留业务 payload，失败带
 `error_code / next_action / retryable`。状态文件不存凭证但可能有业务隐私，勿提交。

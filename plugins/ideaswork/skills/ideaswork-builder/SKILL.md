@@ -80,6 +80,7 @@ Builder 本地验证平台原生 Skill 时使用固定映射：
 | `sandbox_bash` | Host Bash |
 | `register_async_poll` | `ideaswork runtime wait-result` |
 | `ask_user_interact`（含素材字段） | Remote MCP App；需要审批的 API 在 Remote MCP 侧拒绝执行 |
+| 心影图谱展示（`skill_sop.json`） | Plugin：Remote MCP App `show_skill_sop`（默认/高级两种视图，可对节点留意见）；CLI：`ideaswork skill sop`，只输出 Mermaid，无交互与评论 |
 
 不得调用旧 `avp_local` MCP 或 Agent Service `local_rpc` 作为新 Builder 主链路。Codex Plugin 的 Runtime Core 通过 Remote MCP `create_runtime_lease` 调用远端能力：每个实际调用 Context 首次需要本地执行时取得 lease，并在有效期内复用；随包 CLI 是独立终端入口，Plugin 不读取 CLI OAuth session。
 

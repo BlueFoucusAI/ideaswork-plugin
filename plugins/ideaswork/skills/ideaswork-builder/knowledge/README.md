@@ -5,6 +5,7 @@
 | 文件 | 性质 | 何时读 |
 |---|---|---|
 | `CONSTRAINTS.md` | 全局约束（写脚本必读） | sub_skill_01 一次性读入 |
+| `SKILL_SOP.md` | 心影图谱 `skill_sop.json` 的结构与写法 | sub_skill_05 生成图谱时读 |
 | `<CATEGORY>.md`（镜像 category 层级） | 某分类的隐含知识 | **用到该分类能力时才读**（渐进式披露） |
 
 ## 分类知识：目录即 category 层级

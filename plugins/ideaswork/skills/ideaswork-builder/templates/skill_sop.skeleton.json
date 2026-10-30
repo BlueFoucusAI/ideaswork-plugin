@@ -1,0 +1,54 @@
+{
+  "spec_version": "1.0",
+  "title": "TODO_skill_name 设计稿",
+  "summary": "模板自带的结构示范：三段式主链 + 用户确认回路，初始化后按业务改写各节点",
+  "steps": [
+    {
+      "id": "prepare",
+      "title": "准备与校验",
+      "intent": "TODO：收齐并校验本技能需要的业务输入",
+      "skill_key": "TODO_skill_name/sub_skill_01_xxx/SKILL.md",
+      "constraints": ["平台业务数据一律 blue_exec_api 直接调用", "TODO 补充本阶段约束"],
+      "input": ["TODO：上游输入描述"],
+      "output": ["TODO：可进入生成阶段的已校验输入"],
+      "actions": []
+    },
+    {
+      "id": "produce",
+      "title": "生成与确认",
+      "intent": "TODO：薄脚本 + 平台 API 完成核心生成，并以表单让用户拍板",
+      "constraints": ["脚本仅做 LLM/文本计算，业务 API 由 Agent 直接调用"],
+      "actions": [
+        {
+          "id": "produce-generate",
+          "title": "脚本生成内容",
+          "intent": "run_python_script 执行 tools/gen_llm.py，经 call_platform_api 调用 LLM",
+          "input": ["上一步已校验的输入"],
+          "output": ["TODO：生成的中间产物"],
+          "capabilities": [
+            { "type": "api", "ref": "svad_llm_chat" },
+            { "type": "script", "ref": "tools/gen_llm.py", "intent": "按 prompt 文件生成内容并落盘" }
+          ]
+        },
+        {
+          "id": "produce-confirm",
+          "title": "确认产出参数",
+          "intent": "动态表单收集用户确认与调整意见",
+          "user_interact_form": { "file_key": "TODO_skill_name/forms/confirm.json", "mode": "form" }
+        }
+      ]
+    },
+    {
+      "id": "deliver",
+      "title": "交付",
+      "intent": "TODO：交付最终产物并收集调整路径",
+      "actions": []
+    }
+  ],
+  "edges": [
+    { "from_id": "prepare", "to_id": "produce" },
+    { "from_id": "produce-generate", "to_id": "produce-confirm", "when": "内容生成完成后需用户确认" },
+    { "from_id": "produce-confirm", "to_id": "produce-generate", "when": "用户要求调整生成结果" },
+    { "from_id": "produce", "to_id": "deliver" }
+  ]
+}
