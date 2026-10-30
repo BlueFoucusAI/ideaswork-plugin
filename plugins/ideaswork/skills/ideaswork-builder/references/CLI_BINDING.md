@@ -40,4 +40,6 @@ conversion/sampling 模式、渐进加载、用户授权、API grant 或 draft/p
 
 以上命令均通过 `ideaswork` 调用并复用原 `--task`。`--json` 成功保留业务 payload，失败带
 `error_code / next_action / retryable`。状态文件不存凭证但可能有业务隐私，勿提交。
-Windows 原生可运行 Python bridge（本机需 Python 3.10+），入口用 `.cmd`，JSON 参数用 `@文件`；portable 自更新仍需 WSL；自动唤醒、富交互卡片和新审批通道不在 CLI 能力承诺中。
+`runtime python` 在所有平台都需要本机 Python 3.10+（macOS 自带的 `/usr/bin/python3` 是 3.9，不能用）。版本不够时返回
+`python_version_unsupported`（退出码 2），脚本不会执行：把消息里的解释器路径和版本告诉用户，请用户装 3.10+ 后用
+`--python-executable` 指定，不要改写脚本去兼容旧版本。Windows 原生可运行 Python bridge，入口用 `.cmd`，JSON 参数用 `@文件`；portable 自更新仍需 WSL；自动唤醒、富交互卡片和新审批通道不在 CLI 能力承诺中。

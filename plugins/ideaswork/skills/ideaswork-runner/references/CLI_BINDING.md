@@ -51,8 +51,8 @@ CLI 内部仍连接同一 Remote MCP 服务，不使用旧 Local MCP、`local_rp
 | `blue_list_apis` | `ideaswork api list --json`（只列当前已授权 API） |
 | `blue_query_api_docs(code)` | `ideaswork api docs <code> --json` |
 | `blue_exec_api(code, body)` | `ideaswork api exec <code> --body @body.json --json` |
-| `blue_exec_batch(calls)` | `ideaswork api batch --calls-json @calls.json --json` |
-| `run_python_script` | `ideaswork runtime python --workspace <workspace_dir> --script <相对script_path> --args-json @args.json --json` |
+| `blue_exec_api(calls=…)`（批量） | `ideaswork api batch --calls-json @calls.json --json` |
+| `run_python_script` | `ideaswork runtime python --workspace <workspace_dir> --script <相对script_path> --args-json @args.json --json`（需本机 Python 3.10+；`python_version_unsupported` 时请用户装新版本并用 `--python-executable` 指定，不改脚本） |
 | 脚本内 `call_platform_api` | Runtime Core 父进程 bridge；不得裸跑脚本或把 OAuth/lease 传给子进程 |
 | `sandbox_bash` | Host Shell，在实际 Skill workspace 执行；不是平台 sandbox |
 | `register_async_poll` | `ideaswork runtime wait-result`；不自行 sleep/轮询、不等待平台回调 |
@@ -68,6 +68,7 @@ Batch 仅用于已查询文档、彼此独立的调用；不要为省命令把�
 
 先根据创建响应的真实任务 ID、状态查询文档和 `wait_result_hint` 组织查询条件。
 完成条件沿用 Runtime Core schema，例如 `{"field":"data.status","value":"succeeded"}`；字段以文档为准。
+hint 里带 `task_id` 和 `fallback`（如 `t2v_session_task_create`）时，主查询查不到就直接用 `fallback` 的查询 API 和参数；
 按 Skill 原语或 hint 查不到结果时，改用 `task_status`（`task_id` 取创建响应的真实任务 ID）尝试。
 
 ```bash

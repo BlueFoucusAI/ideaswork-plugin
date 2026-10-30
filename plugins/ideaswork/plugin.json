@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "ideaswork",
-  "version": "2026.1029.192233-dev",
+  "version": "2026.1030.114836-dev",
   "description": "Use platform capabilities, run published Skills, and build reusable IdeasWork Skills locally in Codex.",
   "author": {
     "name": "BlueAI",
@@ -58,13 +58,13 @@
               "description": "Interactive requirement form with the in-form material picker. Setup: the host supports MCP Apps and the demo account is bound to a workspace. The assistant must collect the missing details through the form and must not start any generation before the user submits it.",
               "prompt": "I want to make a short product video with background music. Ask me for the product name, the style and the background music before doing anything.",
               "tools_triggered": "get_current_context, ask_user_interact",
-              "expected_behavior": "Reads the active context with get_current_context, then calls ask_user_interact once with a form that has a text field for the product name, a select field for the style and a built_in field with component material_picker and accept [\"audio\"] for the background music, and stops its turn. The form renders in the host and the music field opens the workspace material library inside the form (the App reads the library through browse_materials; the assistant itself calls browse_materials only if the form reports that the host cannot fetch data from inside the App). Before the user submits, no blue_exec_api or blue_exec_batch call is made. After submission the assistant uses the returned interaction_response message and repeats the submitted product name, style and chosen music back to the user."
+              "expected_behavior": "Reads the active context with get_current_context, then calls ask_user_interact once with a form that has a text field for the product name, a select field for the style and a built_in field with component material_picker and accept [\"audio\"] for the background music, and stops its turn. The form renders in the host and the music field opens the workspace material library inside the form (the App reads the library through browse_materials; the assistant itself calls browse_materials only if the form reports that the host cannot fetch data from inside the App). Before the user submits, no blue_exec_api call is made. After submission the assistant uses the returned interaction_response message and repeats the submitted product name, style and chosen music back to the user."
             },
             {
               "description": "Pull a published Skill for local inspection without running it. Setup: the demo account can see at least one published Skill, and the plugin's local Runtime Core is installed as the plugin guide describes. In the Catalog, the reviewer selects any one Skill.",
               "prompt": "Pull a published IdeasWork skill into this workspace so I can look at it. Don't run it.",
               "tools_triggered": "browse_skills, get_current_context, switch_context, pull_skill",
-              "expected_behavior": "Opens the Skill Catalog with one argument-free browse_skills call and stops until the user selects a Skill. After the selection it reads get_current_context and, if no skill_runner context is active, calls switch_context with mode skill_runner, then calls pull_skill with the selected skill_id. The response carries the main checkout, any linked[] checkouts and a runtime lease. The assistant downloads and verifies the checkouts locally through the Runtime Core and summarizes the Skill's purpose from the pulled instructions. It does not execute the Skill's scripts, does not call blue_exec_api or blue_exec_batch, and does not print the runtime lease. If pull_skill fails, for example because a linked Skill is missing, it reports the actual error instead of returning a partial result."
+              "expected_behavior": "Opens the Skill Catalog with one argument-free browse_skills call and stops until the user selects a Skill. After the selection it reads get_current_context and, if no skill_runner context is active, calls switch_context with mode skill_runner, then calls pull_skill with the selected skill_id. The response carries the main checkout, any linked[] checkouts and a runtime lease. The assistant downloads and verifies the checkouts locally through the Runtime Core and summarizes the Skill's purpose from the pulled instructions. It does not execute the Skill's scripts, does not call blue_exec_api, and does not print the runtime lease. If pull_skill fails, for example because a linked Skill is missing, it reports the actual error instead of returning a partial result."
             }
           ],
           "negative": [

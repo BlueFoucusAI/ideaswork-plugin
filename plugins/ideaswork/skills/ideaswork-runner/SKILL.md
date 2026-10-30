@@ -280,7 +280,7 @@ Remote / Local tool source 之间猜测。执行前仍要**先发现 MCP 工具*
 |---|---|
 | `blue_query_api_docs` | Remote MCP `blue_query_api_docs` |
 | `blue_exec_api` | Remote MCP `blue_exec_api` |
-| `blue_exec_batch` | Remote MCP `blue_exec_batch` |
+| 批量执行 | Remote MCP `blue_exec_api`，传 `calls` 而不是 `api_code` / `body` |
 | `run_python_script` | `sh <plugin_root>/runtime/bin/ideaswork runtime python --runtime-endpoint <endpoint> --runtime-lease-stdin ...` |
 | `sandbox_bash` | Host Bash，在当前 Skill workspace 执行 |
 | 平台 Skill 的异步等待 | 统一用 `sh <plugin_root>/runtime/bin/ideaswork runtime wait-result --runtime-endpoint <endpoint> --runtime-lease-stdin ...`。同批多任务必须使用一次 `--tasks-json` 调用。 |
@@ -325,6 +325,9 @@ CLI 输出时，才允许降级到 CLI。
 `wait_result_hint` 时使用其中的查询 API 和完成条件，并从实际创建响应中提取任务查询参数；
 未提供完整信息时先查询 API 文档和 Skill，不能把提交成功、事件订阅或唤醒提示当作最终结果。
 若没有可用查询 API，停止并说明无法在当前宿主取得异步结果。
+
+`wait_result_hint` 带 `task_id` 与 `fallback` 时（创建响应里能取到平台基础任务 ID），主查询查不到就直接用
+`fallback.query_api_code` 和 `fallback.params`，同样先查它的文档。
 
 提醒：任何异步任务，若按 Skill 原语或 `wait_result_hint` 指向的查询 API 查不到结果，可改用
 `task_status` 尝试，`task_id` 取创建响应里的真实任务 ID，完成条件看 `data.status`（可加

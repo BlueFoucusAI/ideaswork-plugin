@@ -54,7 +54,7 @@ description: 通过 IdeasWork Remote MCP 或独立 CLI 查询、调用和组合�
   （`wait-result`、`runtime python`、素材上传）才需要 lease。不要在 `get_current_context` / `switch_context` 之后预先取；
   在确定要做本地动作的那一轮取，并在有效期内复用。
 - 用户原话和 API 文档默认值能确定的参数不要再问；必须问时一次问全（见「MCP Apps」）。
-- 互相独立、文档均已查询的多个操作，用一次 `blue_exec_batch`，不拆成多轮单调用。
+- 互相独立、文档均已查询的多个操作，用一次 `blue_exec_api`（传 `calls` 批量），不拆成多轮单调用。
 
 ## 工作区边界（默认不切换）
 
@@ -111,11 +111,11 @@ description: 通过 IdeasWork Remote MCP 或独立 CLI 查询、调用和组合�
    不靠 `api_code` 名称猜分类、不要求为普通 API 先 pull 一个 Skill。
    服务端仍校验 scope、工作区/资源权限、额度、依赖和审批。若旧部署仍返回 allowlist/grant 限制，以真实拒绝为准，
    汇报尚未开放，不通过切 mode、拉不相关 Skill、本地脚本、CLI 或裸 HTTP 绕过；Runtime lease 不扩大权限。
-4. 只有多个操作彼此独立、每项文档均已查询、且不需要逐项根据结果调整时才用 `blue_exec_batch`。否则按顺序
+4. 只有多个操作彼此独立、每项文档均已查询、且不需要逐项根据结果调整时才用 `blue_exec_api` 的 `calls` 批量。否则按顺序
    调用 `blue_exec_api`。
 5. 若返回异步任务 ID，统一使用本地 Runtime Core `sh <plugin_root>/runtime/bin/ideaswork runtime wait-result` 等待并获取结果。
    使用 `wait_result_hint` 的查询 API 和完成条件；其文档若还没查询过就先查，按创建响应中的真实任务 ID
-   组织查询参数；缺少查询 API，或 hint 的查询 API 查不到结果（如 Remote MCP 下 `t2v_session_task_create`
+   组织查询参数；hint 带 `fallback` 时主查询查不到就用它；缺少查询 API，或 hint 的查询 API 查不到结果（如 Remote MCP 下 `t2v_session_task_create`
 的 `t2v_session_task_query` 按会话恒为空，应用 `data.data.base_task_id` 查 `task_status`）时，
 仅在 `task_status` 已授权且文档确认适用时使用它。
    需要 lease 时调用 `create_runtime_lease` 取得当前 capability Context 的短期 lease（已确定是异步时可与
