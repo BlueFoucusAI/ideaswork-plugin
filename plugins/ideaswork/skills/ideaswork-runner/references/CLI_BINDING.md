@@ -96,6 +96,7 @@ ideaswork runtime wait-result --resume <任务目录>/wait.json --json --task <t
   pull 原 Skill、查询文档；不重放可能有副作用的 Python/API。旧等待文件因平台会话变化可能拒绝自动续等，
   此时先核对原任务真实状态，再在正确授权 Context 中用原任务 ID 新建等待定义，不能新建生成任务。
 - `request_outcome_unknown`：请求可能已执行；先核对远端状态，不盲目重试。
+- `network_unreachable`（退出码 1，`retryable=true`）：连接都没建立（沙箱断网、域名解析失败、连接被拒、代理拒绝隧道），请求一个字节都没发出、什么也没执行；请用户放开网络后原样重试即可，不必核对远端状态。
 - `wait_state_mismatch / wait_context_mismatch`：身份、task 或平台会话不同；不在新项目自动续等。
 
 Runtime 等待不等于后台唤醒 Agent。Harness 要保持命令执行或提供自己的续接机制；不承诺自动恢复对话。
