@@ -40,8 +40,8 @@ API 使用以 Runner 主入口的「默认聚焦与远端准入分开」为准�
 
 ## 新 Runtime Core 架构（2026-09-18）
 
-以下是新 Codex target 的唯一映射，优先级高于本文后续旧 `avp_local`/`local_rpc` 描述；后续旧段落只保留
-为 legacy 制品的差异参考，**不得作为新 Codex Plugin 或新 CLI 的操作指引**。
+以下是新 Plugin 与 CLI 形态的唯一映射，优先级高于本文后续旧 `avp_local`/`local_rpc` 描述；后续旧段落只保留
+为 legacy 制品的差异参考，**不得作为新 Plugin 或新 CLI 的操作指引**。
 
 | 平台原语 | 新架构入口 |
 |---|---|
@@ -52,18 +52,18 @@ API 使用以 Runner 主入口的「默认聚焦与远端准入分开」为准�
 | `register_async_poll` | `ideaswork runtime wait-result` |
 | `ask_user_interact`（含素材字段） | Remote MCP App；需要审批的 API 在 Remote MCP 侧拒绝执行 |
 
-独立 CLI 使用标准 OAuth session；Codex Plugin Runtime 不读取该 session。Plugin 的 lease 随 Remote MCP `pull_skill` 返回自动下发（短 TTL、Context 绑定），并在 lease 有效期间复用；仅失效、额度耗尽或 Context 变化后才通过 `create_runtime_lease` 重签。随后 Runtime Core 调用 Runtime lease endpoint。新 Runner 不使用旧 `ideaswork skill run`、`exec-api`、`poll`、`session` 或 Agent Service `local_rpc`。
+独立 CLI 使用标准 OAuth session；Plugin Runtime 不读取该 session。Plugin 的 lease 随 Remote MCP `pull_skill` 返回自动下发（短 TTL、Context 绑定），并在 lease 有效期间复用；仅失效、额度耗尽或 Context 变化后才通过 `create_runtime_lease` 重签。随后 Runtime Core 调用 Runtime lease endpoint。新 Runner 不使用旧 `ideaswork skill run`、`exec-api`、`poll`、`session` 或 Agent Service `local_rpc`。
 
 ## 能力映射
 
 > 平台原语（docs / exec / run / poll）**优先走 `ideaswork` MCP 工具**——session 绑定与异步
-> 回流只挂在 MCP 调用上（见 SKILL.md §2「MCP 优先」）。下表 CLI 命令是 MCP 不可用时的
+> 回流只挂在 MCP 调用上（见 SKILL.md「平台原语固定映射」）。下表 CLI 命令是 MCP 不可用时的
 > 降级等价物，降级须在结论中列出。
 
 | 平台侧 | 本地等价物 | 一致性 |
 |---|---|---|
 | `SkillService.activate()` 的落盘结果 | Remote MCP `pull_skill` 返回主 checkout + 递归 `linked[]`，Runtime Core `checkout --linked-json` → `workspace/.claude/skills/<name>/` + `CLAUDE.md` | ✅ 布局/排除 api.json/`__skill_meta.json`/linked 展开一致；依赖缺失时整次失败 |
-| Agent 读 SKILL.md / sub_skill 渐进加载 | **你自己**（Claude Code）读运行目录下的文件 | 形式一致，**模型不同**（见失真 F1） |
+| Agent 读 SKILL.md / sub_skill 渐进加载 | **你自己**（当前宿主里的模型）读运行目录下的文件 | 形式一致，**模型不同**（见失真 F1） |
 | `blue_query_api_docs(api_code)` | Remote MCP `blue_query_api_docs` | ✅ 同一注册表、同一返回 |
 | `blue_exec_api(api_code, body)` | Remote MCP `blue_exec_api` | ✅ 打真实平台；⚠️ 门禁不同（F2） |
 | `run_python_script(...)` | `ideaswork runtime python` | ⚠️ preamble 语义复刻，但**跑在你本机**（ffmpeg / 包 / CPU 都是本机的，F13）；审查与超时也不同（F5/F6） |
@@ -109,7 +109,7 @@ API 使用以 Runner 主入口的「默认聚焦与远端准入分开」为准�
 ### F3 · 异步等待是当前调用内轮询，不是平台自动唤醒
 
 平台：`register_async_poll` 注册后**结束本轮对话**，任务完成时唤醒会话，Agent 在新一轮里只拿到
-poll 结果与文件。Codex Plugin：Runner 使用 Runtime Core `wait_result` 在当前调用里查询原
+poll 结果与文件。Plugin：Runner 使用 Runtime Core `wait_result` 在当前调用里查询原
 `query_api_code`，按完成条件返回 `succeeded` / `failed` / `timeout`；不需要顶层 Adapter，
 也不会自动续接。超过单次等待或 lease 有效期时分段处理，不能因超时重提创建请求。
 

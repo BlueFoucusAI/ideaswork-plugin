@@ -1,6 +1,6 @@
 ---
 name: ideaswork-capability
-description: 通过 IdeasWork Remote MCP 或独立 CLI 查询、调用和组合平台业务能力，完成生成、处理、查询等实际任务。用户尚未要求构建 Skill 时，即使连续使用多个 API 也保持此工作流；明确要把已有成果沉淀为 Skill 时交给 ideaswork-builder，查找或运行已发布 Skill 时交给 ideaswork-runner。
+description: 用户要在 IdeasWork（心影）平台上直接生成、处理或查询内容（如图片、视频、音频），或把多个平台 API 组合起来完成任务时使用；即使连续调用多个 API，只要用户没有要求沉淀成 Skill，就保持此工作流。查找或运行已发布 Skill 属于 ideaswork-runner；把成果沉淀、构建或转化为 Skill 属于 ideaswork-builder。
 ---
 
 # IdeasWork Capability
@@ -76,8 +76,8 @@ description: 通过 IdeasWork Remote MCP 或独立 CLI 查询、调用和组合�
 ## 连接与上下文
 
 1. 先检查本 task 是否已有 IdeasWork Remote MCP 工具（例如 `get_current_context`、`blue_query_api_docs`）。
-   - 若没有：请用户在插件中完成/重新触发 **Connect IdeasWork** 的 OAuth 授权，然后重连或新建 task。
-   - 不执行 `codex mcp login`，不读取 CLI 登录态，不以 `List MCP resources` 是否为空判断登录或工具可用性。
+   - 若没有：请用户按宿主的提示，在插件连接管理处或首次调用时完成（或重新触发）IdeasWork 授权，然后重连或新建 task。
+   - 不读取 CLI 登录态，不执行宿主 CLI 的 MCP 登录命令，不以枚举 MCP 资源的结果是否为空判断登录或工具可用性。
 2. **上下文只确认一次**：本会话内任一 `get_current_context` / `switch_context` 的返回已显示 capability 模式的
    active context，且用户没有要求换工作区，就直接进入「调用能力」，不重复检查。否则调用 `get_current_context`；
    没有 active context 或当前 mode 不是 `capability` 时调用：
@@ -111,15 +111,16 @@ description: 通过 IdeasWork Remote MCP 或独立 CLI 查询、调用和组合�
    不靠 `api_code` 名称猜分类、不要求为普通 API 先 pull 一个 Skill。
    服务端仍校验 scope、工作区/资源权限、额度、依赖和审批。若旧部署仍返回 allowlist/grant 限制，以真实拒绝为准，
    汇报尚未开放，不通过切 mode、拉不相关 Skill、本地脚本、CLI 或裸 HTTP 绕过；Runtime lease 不扩大权限。
-4. 只有多个操作彼此独立、每项文档均已查询、且不需要逐项根据结果调整时才用 `blue_exec_api` 的 `calls` 批量。否则按顺序
-   调用 `blue_exec_api`。
+4. 只有多个操作彼此独立、每项文档均已查询、且不需要逐项根据结果调整时才用 `blue_exec_api` 的 `calls` 批量：
+   `calls` 是数组，每项携带一次 `blue_exec_api` 所需的 `api_code` 与 `body`，字段名以 MCP `tools/list`
+   返回的 schema 为准。否则按顺序调用 `blue_exec_api`。
 5. 若返回异步任务 ID，统一使用本地 Runtime Core `sh <plugin_root>/runtime/bin/ideaswork runtime wait-result` 等待并获取结果。
    使用 `wait_result_hint` 的查询 API 和完成条件；其文档若还没查询过就先查，按创建响应中的真实任务 ID
    组织查询参数；hint 带 `fallback` 时主查询查不到就用它；缺少查询 API，或 hint 的查询 API 查不到结果（如 Remote MCP 下 `t2v_session_task_create`
 的 `t2v_session_task_query` 按会话恒为空，应用 `data.data.base_task_id` 查 `task_status`）时，
 仅在 `task_status` 已授权且文档确认适用时使用它。
-   需要 lease 时调用 `create_runtime_lease` 取得当前 capability Context 的短期 lease（已确定是异步时可与
-   `blue_exec_api` 同轮发出），有效期间串行复用；
+   需要 lease 时调用 `create_runtime_lease` 取得当前 capability Context 的短期 lease（入参以 `tools/list`
+   返回的 schema 为准；已确定是异步时可与 `blue_exec_api` 同轮发出），有效期间串行复用；
    把 `runtime_endpoint` / `runtime_lease` 仅传给 Runtime Core parent，不写入文件或普通日志。
    单任务传 `--query-api-code / --params-json / --completion-json`；同批多任务一次传 `--tasks-json`。
    用等待器的 `--initial-delay / --interval / --max-polls` 管理等待窗口，不由 Agent 手工 sleep 或轮询。
@@ -154,16 +155,4 @@ description: 通过 IdeasWork Remote MCP 或独立 CLI 查询、调用和组合�
 
 ## 本地素材上传
 
-- 用户指定本地文件、或 Skill 需要将本地产物入素材库时，复用 `material_upload_proxy`。
-  先确认当前 Context 和 API 文档/grant，不能把本机文件路径直接发给 `blue_exec_api`。
-- Remote MCP 模式：从当前 MCP 的 `create_runtime_lease`（或 pull 返回）取得 lease，
-  使用随包 `runtime/bin/ideaswork material upload <文件> --runtime-endpoint <地址>
-  --runtime-lease-stdin --json`；lease 经 stdin 或父进程环境传入，不写入文件/日志，
-  不要求独立 CLI 登录。
-- 显式 lease 缺失/过期：通过当前 MCP 获取新的 lease；Context 改变先确认 Context。
-  不自动改用 CLI 自己的账号，也不因权限拒绝切换入口。
-- 独立 CLI 模式：`ideaswork material upload <文件> --json` 使用 CLI 自己已有登录和
-  task Context，内部获取 lease。复用同一 `--task`，不自动选择项目或扩展 grant。
-- Runtime 执行 Skill 脚本时，原 `__call_platform_api_file:<workspace相对路径>` 写法
-  保留；父进程负责上传，子进程不接收 lease。上传返回 material_id，不再补一次上传 API。
-- 超时/结果未知不自动重传，先检查素材库，避免重复创建素材。
+用户指定本地文件、或 Skill 需要将本地产物入素材库时，先读 [references/MATERIAL_UPLOAD.md](references/MATERIAL_UPLOAD.md)。要点：不能把本机文件路径直接发给 `blue_exec_api`；超时/结果未知不自动重传，先检查素材库。

@@ -69,7 +69,7 @@ Skill 推送**不再是 MCP 工具**：它是用 Runtime lease 鉴权的 HTTP �
 （只含 Skill 源文件；排除 `.avp_gaps.json`、`SKILL_BUILD_FINDINGS.md`、`__skill_meta.json`、缓存和构建台账；
 旧桥接块在上传副本里剥离，残缺/重复/顺序错误的标记先修复；拒绝符号链接与越界路径），Agent 不手工构造 archive。
 
-- **Codex Plugin 主链路**：保持 Plugin 的 OAuth 身份，不默认改用独立 CLI。先 `get_current_context` 确认是有团队的 Context
+- **Plugin 主链路**：保持 Plugin 的 OAuth 身份，不默认改用独立 CLI。先 `get_current_context` 确认是有团队的 Context
   （已有 active context 就沿用，不为推送强改 mode；没有才 `switch_context`），再调 `create_runtime_lease`。
   载荷里没有 `skill_push_endpoint` 就停止本节，保留本地交付并说明限制，不臆造工具、不借 CLI 身份绕过。有则：
 

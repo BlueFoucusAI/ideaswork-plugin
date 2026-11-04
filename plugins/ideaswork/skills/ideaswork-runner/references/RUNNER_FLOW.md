@@ -1,13 +1,13 @@
-# Codex Plugin Runner 主链路
+# Plugin Runner 主链路
 
-本图描述已发布 Skill 在 **Codex Plugin + Remote MCP + 本地 Runtime Core** 中的运行流程；
+本图描述已发布 Skill 在 **Plugin + Remote MCP + 本地 Runtime Core** 中的运行流程；
 独立终端 CLI 的 `ideaswork skill pull` 是另一条入口，见 [CLI_BINDING.md](CLI_BINDING.md)。图中的 `checkout` 指用
 `checkout_id` 下载并物化 ZIP，不是 Git checkout，也不是 SHA-256 校验。
 
 ```mermaid
 flowchart TD
     A["用户要运行已发布 Skill"] --> B{"IdeasWork Remote MCP<br/>已连接？"}
-    B -- 否 --> B0["用户完成 Connect IdeasWork / OAuth<br/>本轮停止，连接后继续"]
+    B -- 否 --> B0["用户在宿主中完成 IdeasWork 授权<br/>本轮停止，连接后继续"]
     B -- 是 --> C{"已有明确的 skill_id？"}
 
     C -- 否 --> C1["browse_skills() 一次<br/>在 Catalog 内搜索、翻页、选择"]

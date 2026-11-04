@@ -10,7 +10,7 @@
 - `browse_skills`：查看当前账号可见的已发布 Skill，先确认是否已有可复用能力。它是 Skill Catalog，不是 API 注册表。
 - `blue_list_apis`：列出**当前 Context 已授权**的 `api_code` 和简要说明。它不会列出全量平台注册表；Builder Context 通常没有直接执行 API 的 grant。
 - `blue_query_api_docs(api_code)`：在有 grant 的 Context 中核对候选 API 的 schema。执行前必须先查文档。
-- 独立 CLI 对应命令：`ideaswork skill list`、`ideaswork api list` 和 `ideaswork api docs <api_code>`。CLI 使用自己的 OAuth Context，与 Codex Plugin 的连接分开。
+- 独立 CLI 对应命令：`ideaswork skill list`、`ideaswork api list` 和 `ideaswork api docs <api_code>`。CLI 使用自己的 OAuth Context，与 Plugin 的连接分开。
 
 旧版 `ideaswork_studio.list_skills`、`resolve_api_by_url`、`list_api_categories` 和 `browse_apis` 不在当前发行包或 Remote MCP 工具集中；不要调用这些名字，也不要用裸 HTTP 或旧 `local_rpc` 绕过授权。
 

@@ -1,6 +1,6 @@
 ---
 name: ideaswork-runner
-description: IdeasWork（心影）线上已发布 Skill 的**首要发现与运行入口**。用户通过 IdeasWork 询问「有什么/有哪些/可用哪些/找一下/搜索/推荐 skill」「心影有哪些 skill」「帮我找个 skill」时，默认指**远端已发布 Skill Catalog**，必须先查询远端 Catalog：原生 MCP 走 `browse_skills`，CLI 走 `ideaswork skill list`，不能把当前工作区、Codex 已安装 Skill、插件 Runner/Builder 说明或本地文件误当答案。仅当用户明确说「本地/已安装/Codex/工作区 skill」时才讨论本地 Skill。也用于拉取、运行或验证已发布心影 Skill；设计、转化、打样、发布 Skill 属于 ideaswork-builder。
+description: IdeasWork（心影）已发布 Skill 的发现与运行入口。用户问心影有哪些/找/搜索/推荐 skill，或要拉取、运行、验证某个已发布 Skill 时使用；未明说“本地”“已安装”“工作区”时，默认指远端 Skill Catalog。设计、转化、打样、发布 Skill 属于 ideaswork-builder；直接调用平台能力属于 ideaswork-capability。
 ---
 
 # IdeasWork Runner
@@ -38,11 +38,11 @@ description: IdeasWork（心影）线上已发布 Skill 的**首要发现与运�
 
 - **主 Skill**：你 `pull` 的那个技能；运行目录以 pull 的返回值为准（CLI 会增加 task 子目录）。
 - **linked 子技能**：随主 Skill 一起展开的技能，没有自己的 `.avp_run` 目录。
-- **平台原语**：查文档 / 调 API / 跑脚本 / 注册异步轮询四类操作（见 §2「MCP 优先」）。
+- **平台原语**：查文档 / 调 API / 跑脚本 / 注册异步轮询四类操作（见下文「平台原语固定映射」）。
 
 ## Skill 语义优先级（先按这里消歧）
 
-当用户是通过 IdeasWork 插件发问，且没有明确加“本地 / 已安装 / Codex / 工作区”限定时，
+当用户是通过 IdeasWork 插件发问，且没有明确加“本地 / 已安装 / 工作区”限定时，
 下面这些说法一律指 **IdeasWork 远端已发布 Skill Catalog**：
 
 ```text
@@ -56,12 +56,12 @@ description: IdeasWork（心影）线上已发布 Skill 的**首要发现与运�
    不传 `page`、`page_size`、`include_details` 或搜索参数；不要为了“全量”“下一页”“更详细”再次调用。
    Catalog 自己在 App 内完成搜索和分页。调用后立刻结束本轮，等待用户在 App 中选择；不直接在聊天中
    根据模型记忆、Runner/Builder 名称或本地目录手工罗列。
-2. `ideaswork-runner`、`ideaswork-builder`、当前 workspace 的 `.claude/skills/`、Codex 已安装 Skill 和
+2. `ideaswork-runner`、`ideaswork-builder`、当前 workspace 的 `.claude/skills/`、宿主已安装的 Skill 和
    Plugin 内文件只是**本地指引或宿主能力**，不是“心影有什么 Skill”的默认答案来源。
-3. 只有用户明确说“本地 skill”“当前工作区 skill”“Codex 已安装 skill”或给出本地路径时，才切换到本地
+3. 只有用户明确说“本地 skill”“当前工作区 skill”“已安装 skill”或给出本地路径时，才切换到本地
    Skill 语义；否则不要把远端 Catalog 问题降级成查本地文件。
-4. 若 Remote MCP tools 尚未注入，先按下一节的 OAuth 登录门建立 Codex MCP connection；完成前不要用
-   CLI 本地登录态或 `List MCP resources` 代替 Catalog 查询。
+4. 若 Remote MCP tools 尚未注入，先按下一节的授权门让宿主建立 IdeasWork 的 Remote MCP 连接；完成前不要用
+   CLI 本地登录态或枚举 MCP 资源的结果代替 Catalog 查询。
 
 ## 工作区边界（默认不切换）
 
@@ -82,22 +82,21 @@ description: IdeasWork（心影）线上已发布 Skill 的**首要发现与运�
 
 ## 前置条件（按顺序执行）
 
-### 0. 首次使用的 OAuth 登录门
+### 0. 首次使用的授权门
 
 先检查当前 task 是否已经注入任意一个 IdeasWork Remote MCP tool（例如 `browse_skills`、
 `get_current_context` 或 `browse_contexts`）。
 
 - **已经注入**：直接继续下一步。
-- **一个都没有**：这是 Codex Plugin 的连接/授权状态，不是让 Agent 在终端代替用户登录的信号。提示用户在
-  插件页完成或重新触发 **Connect IdeasWork**；安装策略为 `authentication: "ON_INSTALL"`，Codex 应在安装时
-  通过该插件声明的 OAuth-protected Remote MCP 请求用户授权。用户完成浏览器中的登录和授权后，新建或重连
-  IdeasWork task，使 Remote MCP tools 与 MCP Apps 注入。
+- **一个都没有**：这是宿主侧的连接/授权状态，不是让 Agent 在终端代替用户登录的信号。提示用户按宿主的
+  提示，在插件连接管理处或首次调用时完成（或重新触发）IdeasWork 的授权；授权由宿主依据插件声明的
+  OAuth-protected Remote MCP 发起。用户完成浏览器中的登录和授权后，新建或重连 IdeasWork task，使
+  Remote MCP tools 与 MCP Apps 注入。
 
-  已安装但仍无工具时，先让用户检查插件连接状态或重新连接；不要执行 `codex mcp login`，不要读取/写入
-  CLI OAuth session，也不要用裸 HTTP `/mcp`、本地 token 或 `List MCP resources` 冒充 Codex MCP connection。
+  已安装但仍无工具时，先让用户检查插件连接状态或重新连接；不要读取/写入 CLI OAuth session，不要执行宿主
+  CLI 的 MCP 登录命令，也不要用裸 HTTP `/mcp`、本地 token 或枚举 MCP 资源的结果冒充宿主已建立的 MCP 连接。
 
-> Plugin manifest 只关联 `.mcp.json` 的 Remote MCP；OAuth UI 和 token 由 Codex host 与 MCP 的 protected-resource
-> discovery 负责。Runtime Core 不能、也不应读取该 token。
+> OAuth 界面和 token 由宿主与 MCP 的 protected-resource discovery 负责。Runtime Core 不能、也不应读取该 token。
 
 1. **先发现 Remote MCP 工具，再浏览 Catalog**。`browse_skills` 是只读查询：有 active context 时
    使用该团队；没有时使用 OAuth 登录携带的默认团队。它**不创建 AVP session**，列出/搜索 Skill
@@ -118,21 +117,22 @@ description: IdeasWork（心影）线上已发布 Skill 的**首要发现与运�
      不静默落回 OAuth 默认项目、不重放业务调用。
    `switch_context` 才会绑定 team、project 与隐藏的 AVP session；不要传入或伪造 `avp_session_id`。
    `pull_skill` 返回 immutable checkout archive，由 Host 下载、校验并物化到当前 workspace；
-   Codex Plugin 虽随包携带 IdeasWork CLI，主链路不依赖 CLI 或其登录态。
+   Plugin 主链路不依赖独立 CLI 或其登录态。
 3. `pull_skill` 的返回**自带当前 skill_runner Context 的 runtime lease**（`runtime_endpoint` 与
    `runtime_lease`，随 pull 输出中的 `runtime_lease` 字段下发），后续 Runtime Core 命令直接复用。
    只把它们传给 Runtime Core **parent** 命令，不要写进 Skill 文件、普通日志或传给 Python
    子进程。仅在 lease 失效、额度耗尽或 Context 改变后，才调用 `create_runtime_lease` 重签（有效
-   Context 的重复请求会返回同一 lease，**不会延长它的到期时间**）。lease 最长 15 分钟，
+   Context 的重复请求会返回同一 lease，**不会延长它的到期时间**）；入参以 MCP `tools/list` 返回的 schema 为准，
+   不自行编造。lease 最长 15 分钟，
    Runtime Core 子进程不能自行续租。以返回的 `expires_in` / `remaining_calls` 判断剩余预算：
    不为「把 600 秒升级为 900 秒」提前重签；若等待可能超过当前剩余有效期，缩短本段
-   `wait_result` 的 `max_polls`，待本段完成或 lease 真实失效后再按需重签。新签发时可请求
-   最长 900 秒，但 900 秒的参数不改变复用中的 lease。**同一 lease 的 Runtime Core
+   `wait_result` 的 `max_polls`，待本段完成或 lease 真实失效后再按需重签。重签的新 lease
+   有效期最长 900 秒，但这不会改变仍在复用中的 lease。**同一 lease 的 Runtime Core
    调用应串行**，不要用多个并发 `wait_result` 进程轮询同一批任务。不可把租约或其值写入磁盘。
 4. 读 [references/EXECUTION_PARITY.md](references/EXECUTION_PARITY.md) 的「能力映射」和
    「已知失真点」两节。本地与平台的全部语义差在那份文件里，本文不重复。
 
-> 所有制品都提供 `ideaswork` 命令作为独立终端入口；它不是 Codex Plugin Runtime 的前置依赖。
+> 所有制品都提供 `ideaswork` 命令作为独立终端入口；它不是 Plugin Runtime 的前置依赖。
 
 本地执行调用**真实平台 API**，会产生费用、数据或项目修改。确认按下面的「授权边界」执行，
 不要把正常工作流拆成逐 API、逐素材、逐场景的重复确认。
@@ -169,65 +169,20 @@ App 能完成的筛选或素材选择不要改成模型手写列表；只有明�
 > Skill Catalog 的筛选、分类和分页都在同一张 App 卡片内完成；每增加一次 `browse_skills` 调用都会额外生成一张卡片，
 > 因此是错误行为。
 
-### `ask_user_interact` 固定调用形态（few-shot，照抄这些结构）
+### `ask_user_interact` 调用形态
 
-mode 先分清：
+调用前先读 [references/FORMS.md](references/FORMS.md)：调用骨架、10 种字段类型、素材字段、few-shot、常见错误和
+提交前自检都在里面，不要凭记忆写参数。最要紧的几条：
 
-- `form`（默认）：要用户填/选/确认。**每轮最多一次；返回后本轮立即结束**——不再输出文字、
-  不再调用任何工具，等用户提交的 follow-up。
-- `preview`：纯展示（成片、图片等），无确认/取消按钮。**不结束本轮**，可继续输出或调用其他
-  工具，无 per-turn 次数限制。
-
-✅ 正确 — 一轮用一个表单收集参数和素材（素材字段要求当前会话已绑定工作区）：
-
-```text
-ask_user_interact(mode="form", title="视频参数确认", tabs=[
-  {"key": "video", "label": "视频参数", "fields": [
-    {"key": "count",  "type": "number", "label": "成片数量", "value": 3, "min": 1, "max": 20, "required": true},
-    {"key": "style",  "type": "select", "label": "风格", "required": true,
-     "options": [{"label": "电影感", "value": "cinematic"}, {"label": "快节奏", "value": "fast"}]},
-    {"key": "bgm", "type": "built_in", "component": "material_picker", "label": "背景音乐",
-     "accept": ["audio"], "multi": false, "required": true},
-    {"key": "tip",    "type": "info", "content": "提交后开始生成"}
-  ]}])
-# 工具返回后立刻结束本轮；下一轮从用户消息的 interaction_response.data 读取所选素材
-```
-
-✅ 正确 — 展示产物不阻塞（preview），已选素材用 `media_info` 预览：
-
-```text
-ask_user_interact(mode="preview", title="成片预览", tabs=[
-  {"key": "out", "label": "预览", "fields": [
-    {"key": "clip", "type": "media_info", "label": "成片",
-     "value": {"url": "https://blueai-video-global.bluemediacdn.com/out.mp4", "name": "成片.mp4", "media_type": "video"}}]}])
-# 返回后可继续同轮输出说明文字或调用其他工具
-```
-
-❌ 常见错误形态（平台会直接拒绝或产生错误行为）：
-
-| 错误 | 后果 | 正确做法 |
-|---|---|---|
-| form 调用后继续输出文字或调用其他工具 | 违反「本轮立即结束」 | 调用即停；说明文字放在调用**之前**输出 |
-| 一轮里为不同问题调第二次 form | 第一张表单尚未由用户回答，交互顺序混乱 | 第二个表单放到用户提交后的**下一轮** |
-| `tabs="[{\"key\":...}]"`（整体序列化成字符串） | 服务端要数组 | 直接传数组对象，禁止字符串化 |
-| `select` / `multi_select` 缺 `options` | 校验失败 | `"options":[{"label":"…","value":"…"}]` |
-| `info` 字段写 `label` | info 不用 label | `{"key":"tip","type":"info","content":"…（markdown）"}` |
-| `range` 用 `min`/`max` 表边界 | 语义错 | 边界用 `min_limit`/`max_limit`，选中值用 `value:{"min":…,"max":…}` |
-| `media_info` 的 `value` 传 URL 字符串或本地路径 | 校验失败 | `value` 必须是含心影 CDN HTTPS `url` 的对象，例如 `{"url":…, "name":…, "media_type":"image"}`；其他链接先上传素材库 |
-| 默认值写进 `placeholder` | 用户不填时默认值丢失 | 默认值/建议值用 `value`；`placeholder` 只放引导灰字 |
-| 使用 `material_preview` / `session_file`，或 `built_in` 的非 `material_picker` 组件 | Remote MCP 只支持 `built_in` 的 `material_picker` | 素材用表单素材字段，预览用 `media_info` 的心影 CDN URL；本地文件先上传后再引用 |
-| 为选素材直接调用 `browse_materials`，或收到表单回传后调用提交/查询工具 | `browse_materials` 只取数；Remote MCP 已移除 `submit_interaction` / `get_interaction_status` | 正常通过表单素材字段选；收到 `interaction_response` 后直接继续，取消则停止相应动作 |
-| 替用户猜测或提交答案 | 表单是用户决策 | 只预填已确定的默认值；素材选择和变更以用户回传为准 |
-
-字段速查（**Remote MCP 共 10 种**）：`text / textarea / number / range / select / multi_select / checkbox / info / media_info / built_in`。
-`built_in` 仅支持 `component: "material_picker"`；`accept` 仅允许 `video / image / audio / ai_video / ai_image / ai_audio`，
-可选 `multi`、`material_type`（须在 `accept` 内）和 `query`。返回素材对象含 `material_id / name / url / material_type / cover_url`
-（多选为数组）。成片预览用 `media_info`。Remote MCP 表单仅接受 `tabs` 数组，**不接受**本地 MCP 的 `path` 参数；
-复杂表单按需精简字段（最多 10 tab、每 tab 16 字段），不要传文件路径。
+- `form`（默认）每轮最多一次，调用后本轮立即结束——不再输出文字、不再调用任何工具，等用户提交的 follow-up；
+  说明文字放在调用**之前**。`preview` 仅展示，不结束本轮。
+- `tabs` 必须是数组对象，不能是 JSON 字符串；`select` / `multi_select` 的 `options` 是 `{label, value}` 对象数组。
+- 默认值写 `value`，`placeholder` 只放引导灰字；每张表单最多 10 个 tab、每个 tab 最多 10 个字段。
+- 素材只能用 `built_in` + `material_picker` 字段；`material_preview`、`session_file` 等不被 Remote MCP 支持。
 
 ## 运行流程
 
-完整的 Codex Plugin 主链路见 [references/RUNNER_FLOW.md](references/RUNNER_FLOW.md)。
+完整的 Plugin 主链路见 [references/RUNNER_FLOW.md](references/RUNNER_FLOW.md)。
 
 ### 1. 拉取 Skill
 
@@ -236,7 +191,9 @@ browse_skills()  # 每次发现请求只调用一次；App 在本地搜索/分�
 -> 等待用户在 App 选择 skill_id
 -> get_current_context -> switch_context(mode="skill_runner")  # 仅首次或 Context/mode 变化时绑定 session
 -> pull_skill(skill_id)  # 一次返回主 checkout、递归 linked[] 及完整 API grant，并自带 runtime lease
--> sh <plugin_root>/runtime/bin/ideaswork runtime checkout      --workspace <workspace> --skill-name <skill_name> --checkout-id <checkout_id>      --linked-json '<linked[]>' --runtime-endpoint <endpoint> --runtime-lease-stdin
+-> sh <plugin_root>/runtime/bin/ideaswork runtime checkout \
+     --workspace <workspace> --skill-name <skill_name> --checkout-id <checkout_id> \
+     --linked-json '<linked[]>' --runtime-endpoint <endpoint> --runtime-lease-stdin
 -> 主 Skill 与全部 linked Skills 一次下载校验后，物化到同一个 <workspace>/.avp_run/<主Skill名>/
 ```
 
@@ -251,9 +208,9 @@ browse_skills()  # 每次发现请求只调用一次；App 在本地搜索/分�
 - checkout 会先下载并验证主 Skill 与全部 linked archive，再统一物化；linked 的 `skill_dir` 位于主目录
   `linked/<子技能名>/`，`runtime_dir` 位于主 Skill 的 `workspace/.claude/skills/<子技能名>/`，不创建
   独立的 `.avp_run/<子技能名>/`。缺失依赖按上述恢复流程处理；明确无权访问时不绕过权限。
-- Codex Plugin 使用随包 Go 二进制提供的 `runtime checkout`，不依赖已安装的全局 CLI，
-  也不调用独立 CLI 的 OAuth `skill pull`。checkout 下载由当前 Context 的 Runtime lease endpoint 完成，
-  archive 和 bearer 凭证不需要暴露给业务 Python 子进程。
+- Plugin 形态通过随包的 `runtime/bin/ideaswork` 启动脚本调用按需安装的 Runtime Core 执行 `runtime checkout`，
+  不依赖独立 CLI 的登录态，也不调用独立 CLI 的 OAuth `skill pull`。checkout 下载由当前 Context 的 Runtime lease
+  endpoint 完成，archive 和 bearer 凭证不需要暴露给业务 Python 子进程。
 - 主 Skill 的 `CLAUDE.md` / linked prompt 编排由后续 Host 物化步骤处理，不能为了省步骤改写原 Skill。
 - standalone CLI 形态可以使用 `ideaswork skill list/pull` 完成同一 Remote MCP control-plane 操作。
 - **checkout 的输出是后续所有路径的唯一权威**：`runtime_dir`（技能运行目录）和 `workspace_dir`
@@ -308,7 +265,7 @@ Remote / Local tool source 之间猜测。执行前仍要**先发现 MCP 工具*
    - `next_action="retry_runtime_call"`（例如 `runtime_lease_busy`）：**原 lease 仍有效，不调用 `create_runtime_lease`**。Runtime Core 对明确的 busy 拒绝已做短暂的有限重试；仍冲突时避免并发使用同一 lease，稍后重试尚未完成的调用。可能有部分副作用的 Python 脚本须先核对 Skill 状态，不盲目重跑；
    - checkout 和纯查询型 wait-result 可用新 lease 重试；Python 脚本可能已经产生部分副作用，必须先根据 Skill 状态判断，必要时向用户确认，不能盲目重跑。
 
-Runtime Core 由 Plugin 与独立 CLI 复用实现：Plugin 使用 `pull_skill` 返回（或 `create_runtime_lease` 重签）的 lease 驱动 Runtime Core；独立 CLI 可采用自己的 OAuth transport。Plugin 随包携带 CLI，但不读取 CLI OAuth session。
+Runtime Core 由 Plugin 与独立 CLI 复用实现：Plugin 使用 `pull_skill` 返回（或 `create_runtime_lease` 重签）的 lease 驱动 Runtime Core；独立 CLI 可采用自己的 OAuth transport。Plugin 随包带的是启动脚本（Runtime Core 按需安装），不读取 CLI OAuth session。
 
 ### Skill 发现必须优先使用 MCP App
 
@@ -376,7 +333,8 @@ sh <plugin_root>/runtime/bin/ideaswork runtime wait-result \
 - 降级或兜底路径（改用 CLI、从列表找回任务 ID 等）、逐步的任务 ID 链路、重试细节；
 - “建议回 Builder 修脚本”“把缺口沉淀成修复”这类建议。
 
-能绕过就静默绕过并把任务做完；绕不过、真的影响结果了，它就属于上面的阻断性情形，按那一条说。
+执行层的非阻断问题（响应格式对不上、自行重试即可解决的内部报错）可以自行处理并不披露，把任务做完；
+权限、审批、授权边界和费用不属于这一类，不得绕过。处理不了、真的影响结果了，它就属于上面的阻断性情形，按那一条说。
 **不披露不等于隐瞒**：凡影响结果真伪、可用性、费用或用户要做的决定的事实都必须说，也不能把失败说成成功。
 
 下一步建议只给业务向的一两个选项（如换素材重跑、换创意方向），不列执行层的选项。
@@ -401,23 +359,9 @@ sh <plugin_root>/runtime/bin/ideaswork runtime wait-result \
 ## 边界
 
 - Runner 不包含 Builder、模板、差异提报或发布逻辑。
-- Runner 不实现平台原语；平台能力仍由 Remote MCP/lease endpoint 提供，本地 CLI 与 Runtime Core
-  控制面编入 `ideaswork-cli` 发行包的同一个 Go 二进制，不依赖旧 `avp_local` Python 包。
-- 顶层宿主 Adapter 暂不打包；本地 `wait_result` 是 Runtime Core 的 portable 等待，不是回调。
+- Runner 不实现平台原语；平台能力由 Remote MCP 与 lease endpoint 提供，本地等待（`wait_result`）由 Runtime Core 完成，不是宿主回调。
 - 同一问题失败三次后停止重试，保留证据并向用户说明阻塞点。
 
 ## 本地素材上传
 
-- 用户指定本地文件、或 Skill 需要将本地产物入素材库时，复用 `material_upload_proxy`。
-  先确认当前 Context 和 API 文档/grant，不能把本机文件路径直接发给 `blue_exec_api`。
-- Remote MCP 模式：从当前 MCP 的 `create_runtime_lease`（或 pull 返回）取得 lease，
-  使用随包 `runtime/bin/ideaswork material upload <文件> --runtime-endpoint <地址>
-  --runtime-lease-stdin --json`；lease 经 stdin 或父进程环境传入，不写入文件/日志，
-  不要求独立 CLI 登录。
-- 显式 lease 缺失/过期：通过当前 MCP 获取新的 lease；Context 改变先确认 Context。
-  不自动改用 CLI 自己的账号，也不因权限拒绝切换入口。
-- 独立 CLI 模式：`ideaswork material upload <文件> --json` 使用 CLI 自己已有登录和
-  task Context，内部获取 lease。复用同一 `--task`，不自动选择项目或扩展 grant。
-- Runtime 执行 Skill 脚本时，原 `__call_platform_api_file:<workspace相对路径>` 写法
-  保留；父进程负责上传，子进程不接收 lease。上传返回 material_id，不再补一次上传 API。
-- 超时/结果未知不自动重传，先检查素材库，避免重复创建素材。
+用户指定本地文件、或 Skill 需要将本地产物入素材库时，先读 [references/MATERIAL_UPLOAD.md](references/MATERIAL_UPLOAD.md)。要点：不能把本机文件路径直接发给 `blue_exec_api`；超时/结果未知不自动重传，先检查素材库。

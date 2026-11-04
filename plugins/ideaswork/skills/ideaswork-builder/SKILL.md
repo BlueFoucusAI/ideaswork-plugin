@@ -1,6 +1,6 @@
 ---
 name: ideaswork-builder
-description: 用户明确要求把已完成的 IdeasWork 能力组合或运行成果沉淀成可复用 Skill，或明确要求从需求、SOP、已有 Skill 开始构建/转化时使用。承接真实执行证据，完成参数化、验证和本地交付；用户没有要求提交/推送时不提交也不提示。日常生成、处理或多 API 组合使用 Capability；运行已发布 Skill 使用 Runner，不因多次调用自动进入 Builder。
+description: 用户明确要求把已完成的 IdeasWork 能力组合或运行成果沉淀成可复用 Skill，或明确要求从需求、SOP、已有 Skill 开始构建、打样或转化 Skill，或要求把本地 Skill 草稿上传/推送到 IdeasWork、发布或更新 Skill 版本时使用。日常生成、处理或多 API 组合使用 ideaswork-capability；运行已发布 Skill 使用 ideaswork-runner，不因多次调用自动进入 Builder。
 ---
 
 # IdeasWork Builder
@@ -16,9 +16,18 @@ description: 用户明确要求把已完成的 IdeasWork 能力组合或运行�
   不因工具暂未注入自动切换 CLI 身份，不把 CLI 当作权限或审批失败的绕过通道。
 
 
-只在用户明确要求构建、转化或沉淀 Skill 时进入；本地创作不要求 Builder 角色或 `skill.write`。
+只在用户明确要求构建、转化、沉淀或上传已有 Skill 草稿时进入；本地创作不要求 Builder 角色或 `skill.write`。
 日常完成任务用 `ideaswork-capability`，运行线上 Skill 用 `ideaswork-runner`。三个指引可以连续衔接，
 无需换包或换账号；切换指引不扩大远端授权。
+
+## 上传已有草稿（只交付，不重新构建）
+
+用户说“把这个 Skill 传到/推到 IdeasWork”时属于本指引入口，但**不代表要重做技能**：用
+[references/CLI_BINDING.md](references/CLI_BINDING.md) 的 `ideaswork skill validate` → `ideaswork skill push`，
+不要裸调实现、不要自造上传请求。草稿必须含 `api.json`：`{"<api_code>": "一句用途"}`；不调用平台 API 时写
+`{"__desc": "本技能不依赖平台 API"}`（空对象 `{}` 和旧数组都会被拒）。只缺这一个声明就补文件，
+不重写 SKILL.md、不为凑格式臆造 api_code；要核对 api_code 或补阶段文档时才读 `sub_skill_05_generate`。
+`--set-current` / `--visibility` 仍须用户明确要求。
 
 ## 两个构建入口（先判断，再选择模式）
 
@@ -47,7 +56,8 @@ description: 用户明确要求把已完成的 IdeasWork 能力组合或运行�
 
 1. 每进入一个阶段时才读取对应 `sub_skill_XX/SKILL.md`，禁止预读全部阶段。
 2. 先完成 `sub_skill_01_preflight` 的模式与上下文检查；复用已确认信息。纯本地编写/校验不以远端登录、Builder Context 或写入权限为前提，远端动作再检查连接及授权。
-3. 先查 API 文档，再执行 API；昂贵、批量、发布、删除等操作必须先取得用户确认。
+3. 先查 API 文档，再执行 API。验证调用只限廉价、可逆且已获授权的；渲染、成片导出、批量生成（一次提交多项任务）、
+   发布和删除（含覆盖已有内容）必须先取得用户明确同意。
 4. 薄脚本只保留机械转换，业务编排写在 Skill 指令中。平台脚本中的 `call_platform_api(api_code, body)` 迁移前后保持不变。
 5. `api.json` 统一为 dict：键为真实查询文档并验证过的 `api_code`，值为一句话用途说明；`__` 前缀键为注释/分组说明，不计入白名单。它是 DB `api_codes` 的唯一文件来源，不另建清单；未知能力先作为待确认或阻塞证据，不臆造 API。
 6. 不显示 token，不把身份配置、草稿缓存或本地产物提交入库。
@@ -82,7 +92,7 @@ Builder 本地验证平台原生 Skill 时使用固定映射：
 | `ask_user_interact`（含素材字段） | Remote MCP App；需要审批的 API 在 Remote MCP 侧拒绝执行 |
 | 心影图谱展示（`skill_sop.json`） | Plugin：Remote MCP App `show_skill_sop`（默认/高级两种视图，可对节点留意见）；CLI：`ideaswork skill sop`，只输出 Mermaid，无交互与评论 |
 
-不得调用旧 `avp_local` MCP 或 Agent Service `local_rpc` 作为新 Builder 主链路。Codex Plugin 的 Runtime Core 通过 Remote MCP `create_runtime_lease` 调用远端能力：每个实际调用 Context 首次需要本地执行时取得 lease，并在有效期内复用；随包 CLI 是独立终端入口，Plugin 不读取 CLI OAuth session。
+不得调用旧 `avp_local` MCP 或 Agent Service `local_rpc` 作为新 Builder 主链路。Plugin 形态的 Runtime Core 通过 Remote MCP `create_runtime_lease` 调用远端能力：每个实际调用 Context 首次需要本地执行时取得 lease，并在有效期内复用；独立 CLI 是另一条终端入口，Plugin 不读取 CLI OAuth session。
 
 ## 依赖边界
 
@@ -91,7 +101,7 @@ Builder 本地验证平台原生 Skill 时使用固定映射：
 - Builder 不实现 Adapter；Plugin/CLI 默认均包含 Runner、Capability、Builder，旧打包 mode 不设角色门槛。
 - 制品转换由仓库顶层 `builders/` 负责；本 Skill 只生成目标无关的 Skill 源文件。
 
-开发仓库 / standalone CLI 远端验证时可以安装并登录 CLI；Codex Plugin 模式不读取 CLI OAuth。
+开发仓库 / standalone CLI 远端验证时可以安装并登录 CLI；Plugin 模式不读取 CLI OAuth。
 已有 Context 足够处理当前只读发现时复用；只有实际远端动作要求对应 mode 时才按契约切换，随后重新核对工作区、grant 和 lease。
 模式切换若在旧部署产生新平台会话，保留原任务/产物关联，不能假定已合并；不为本地创作强制新建 builder Context。
 Python 平台验证取得并复用实际调用 Context 的 runtime lease，不能拿旧 lease 继承权限。

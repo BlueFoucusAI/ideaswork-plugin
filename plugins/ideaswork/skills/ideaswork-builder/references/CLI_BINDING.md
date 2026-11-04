@@ -16,7 +16,7 @@ conversion/sampling 模式、渐进加载、用户授权、API grant 或 draft/p
   查询文档用 `api docs <code> --json`。Builder 不隐式继承 capability 或其他 Skill grant，
   不可见不等于平台未注册。需要按既有发现规则切 mode/查看 Skill 时仍须核对工作区和授权范围。
 - API 调用用 `api exec <code> --body @body.json --json`；仅彼此独立且已查文档的调用用
-  `api batch --calls-json @calls.json --json`。昂贵、批量、发布、删除操作仍按 Builder 授权规则确认。
+  `api batch --calls-json @calls.json --json`。渲染、成片导出、批量生成、发布、删除操作仍按 Builder 授权规则确认。
 - Python 验证用 `runtime python --workspace <cwd> --script <相对路径> --args-json @args.json --json`，
   通过 Runtime Core bridge 保留 `call_platform_api`。不裸跑、不把 OAuth/lease 下发给子进程。
 - Bash 用 Host Shell，在实际 workspace 执行。需求/素材选择用对话和 `material list --json`，
@@ -25,7 +25,9 @@ conversion/sampling 模式、渐进加载、用户授权、API grant 或 draft/p
   多任务用 `--tasks-json`；可显式 `--state-file`，超时退出 3 后 `--resume <文件>`，不重复创建任务。
   中断/网络结果不明/Context 丢失先核对实际状态，不盲目重跑有副作用的验证脚本。
 - 本地编辑、`skill validate`、`skill gaps` 沿用各阶段规则；`skill push` 在上传前会先跑与服务端相同的校验（SKILL.md、api.json、`skill_sop.json` 结构，
-  名称/版本号/分类格式，100 MiB 解压上限），不通过时返回 `validation_failed`（退出码 1）且不上传，按提示修好草稿再推。`skill push <draft> --name <name> --json`（给已有 Skill 加版本用
+  名称/版本号/分类格式，100 MiB 解压上限），不通过时返回 `validation_failed`（退出码 1）且不上传，按提示修好草稿再推。草稿必须有 `api.json`：
+  `{"<api_code>": "一句用途"}`，不调用平台 API 时写 `{"__desc": "本技能不依赖平台 API"}`（空对象与旧数组会被拒），只缺这一项就补文件、不重写 SKILL.md。
+  `skill push <draft> --name <name> --json`（给已有 Skill 加版本用
   `--skill-id <id>`）只在用户明确要求提交时运行，未被要求就不运行、不提及。它不再走 `push_skill` 工具，而是先本地打包校验，
   再用自己的 OAuth 取 Runtime lease 做 HTTP 上传；沿用已有 Context，没有 active context 才切到 `builder`。lease 载荷没有
   `skill_push_endpoint` 时返回 `tool_unavailable / keep_local_draft` 且不上传，此时保留草稿并如实说明，不记 gaps、不重试。
