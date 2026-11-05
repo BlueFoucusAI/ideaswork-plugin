@@ -5,7 +5,7 @@ description: IdeasWork（心影）线上已发布 Skill 的**首要发现与运�
 
 # IdeasWork Runner
 
-> 本制品不内置原生程序：首次需要本地 Runtime Core 命令前，先读 [references/PLUGIN_RUNTIME.md](references/PLUGIN_RUNTIME.md) 检查并按指引安装。
+> 本制品不内置原生程序：首次需要本地 Runtime Core 命令前，先读 [references/PLUGIN_RUNTIME.md](references/PLUGIN_RUNTIME.md) 检查并按指引安装；Windows 原生环境用其中的 `.cmd` 写法，不要用 `sh`。
 
 ## 执行入口选择（先于后续工具指引）
 
@@ -63,6 +63,23 @@ description: IdeasWork（心影）线上已发布 Skill 的**首要发现与运�
 4. 若 Remote MCP tools 尚未注入，先按下一节的 OAuth 登录门建立 Codex MCP connection；完成前不要用
    CLI 本地登录态或 `List MCP resources` 代替 Catalog 查询。
 
+## 工作区边界（默认不切换）
+
+默认只在**当前工作区**里工作：有 active Context 就用它，没有就用登录时的 OAuth 默认团队/项目。
+
+- **不得自行更换团队或项目。** 找不到 Skill、API 没权限、素材不在这里、想“试试别的项目”，都不构成理由：如实告诉用户，
+  问他是否要换，不要自己去 `browse_contexts` / `context list` 找出路。
+- **只有两种情况会切换**：① 用户在本轮明确要求切换（点名了团队/项目）；② 当前工作区确实无法继续（默认项目缺失或不可访问、
+  服务端明确要求选择工作区、原 Context 丢失需要恢复）。第②种必须**先停下**，说明原因并列出本次候选，等用户明确同意；
+  不得静默切换，不得替用户猜选，不得回落到 OAuth 默认项目冒充恢复。
+- **切换前把“从 A → 到 B”（团队/项目名称）告诉用户并得到同意**。一次同意只对应这一次切换；之后要回原工作区同样要问。
+  切换后用 `get_current_context`（CLI：`ideaswork context`）再确认一次当前工作区。
+- **不算切换、无需询问**：省略 `context_ref` 初始化 Context、只切 mode、复用当前会话。
+- **CLI 有硬门**：`context use <ref>`、`team use`、`project use` 切到与当前不同的工作区时会被拒绝，返回
+  `workspace_switch_requires_confirmation`（消息里有当前与目标名称）。用户同意后才加 `--confirm-switch` 重跑；
+  用户本轮自己明确要求切换，视同已同意，可直接加。**不得为了让命令通过而自行添加。** MCP 的
+  `switch_context(context_ref=…)` 服务端目前不强制，同样遵守本条。
+
 ## 前置条件（按顺序执行）
 
 ### 0. 首次使用的 OAuth 登录门
@@ -94,7 +111,7 @@ description: IdeasWork（心影）线上已发布 Skill 的**首要发现与运�
      不设 `new_session=true`；由服务端复用当前工作区或使用 OAuth 默认团队/项目。绑定成功后立即 `pull_skill`。
      **不得仅因 `active_context` 为空或 mode 不符就弹工作区选择表单**；使用登录携带的默认值不是从候选列表猜选。
    - 只有用户明确要求换团队/项目，或服务端明确要求选择工作区（默认项目缺失/不可访问）时，才调用
-     `browse_contexts` 获取最新候选，再用本次团队/项目名称构造 `ask_user_interact` 的 `select`，
+     `browse_contexts` 获取最新候选（见上文「工作区边界」，先问用户，不静默切换），再用本次团队/项目名称构造 `ask_user_interact` 的 `select`，
      结束本轮等待提交。只把用户所选项对应的本次 `context_ref` 传给 `switch_context`，不用旧卡片或缓存 ref，
      不替用户猜选其他工作区。其他认证/权限失败按实际错误处理，不把选工作区当作通用修复。
    - 只有用户明确要求新会话才设置 `new_session=true`。若明确报告原 Context 丢失，先恢复原工作区，
@@ -143,7 +160,7 @@ App 能完成的筛选或素材选择不要改成模型手写列表；只有明�
 
 | MCP App / 入口 | 用户可完成什么 | Agent 必须怎么做 |
 |---|---|---|
-| **Skill Catalog**：`browse_skills()` | 浏览当前账号可见的已发布远端 Skill；按**Skill 分类**、名称、来源、状态、描述筛选；本地翻页；选择一个 Skill。分类 chip 是发现 Skill 的首选入口，卡片上的 `category` 是该 Skill 的权威分类。 | 用户问“有什么 Skill”“有哪些分类”“按类别找/推荐 Skill”时，**只调用一次且不传参数**，然后结束本轮等待用户在 Catalog 中按分类或搜索选择。不要手写一份分类/Skill 清单，不要调用 `get_skill_catalog_records`，不要为翻页或换分类再次调用 `browse_skills`。 |
+| **Skill Catalog**：`browse_skills()` | 浏览当前账号可见的已发布远端 Skill；按**Skill 分类**、名称、来源、状态、描述筛选；本地翻页；选择一个 Skill。分类 chip 是发现 Skill 的首选入口，卡片上的 `category` 是该 Skill 的权威分类。 | 用户问“有什么 Skill”“有哪些分类”“按类别找/推荐 Skill”时，**只调用一次且不传参数**，然后结束本轮等待用户在 Catalog 中按分类或搜索选择。不要手写一份分类/Skill 清单，不要调用 `get_skill_catalog_records`，不要为翻页或换分类再次调用 `browse_skills`。目录的「我的 Skill」列出用户自己的全部 Skill（含草稿、已禁用）；点「管理」会以含 `skill_manage_requested` 的用户消息回到对话，此时不拉取运行，改用 `list_skill_versions` / `manage_skill_version` / `update_skill` 继续，影响他人的变更（设为当前版本、启用、`derivable`、子技能）先让用户明确确认，详见 ideaswork-builder 的「提交之后：属主管理」。 |
 | **工作区切换**：`browse_contexts()` + `ask_user_interact()` | 用户主动换工作区，或默认工作区不可用时另选团队/项目。 | 仅在用户明确要求换团队/项目，或服务端明确要求选择工作区时调用；初始化或仅切 mode 不弹表单。需选择时重新查询，用本次名称构造 `select`，等待提交后传对应的本次 `context_ref`；不使用缓存 ref，也不替用户猜选。 |
 | **动态表单（含素材选择）**：`ask_user_interact()` | 填写结构化字段；`built_in` + `material_picker` 字段在表单内二级展开素材库，完成搜索、筛选、翻页和选择。 | 需要素材时先确认 active Context，再把 `accept` 等参数放入素材字段，与其他输入一次收集。调用后结束本轮；用户确认/取消会以 `interaction_response` 普通用户消息回到对话，直接据其 `action` 和 `data` 继续，不调用提交/状态工具。不得猜测用户选择。 |
 | **素材库取数**：`browse_materials()` | 为表单内素材字段提供只读分页数据，**本身不渲染选择器**。 | 正常选素材时不由 Agent 调用；仅收到表单 App 的 `material_pick_request`（宿主不支持 App 内取数）后，在对话中列出候选，等用户文字确认，再将所选素材写回字段 `value`、其余字段按 `draft` 回填，重新调用 `ask_user_interact`。 |
@@ -263,7 +280,7 @@ Remote / Local tool source 之间猜测。执行前仍要**先发现 MCP 工具*
 |---|---|
 | `blue_query_api_docs` | Remote MCP `blue_query_api_docs` |
 | `blue_exec_api` | Remote MCP `blue_exec_api` |
-| `blue_exec_batch` | Remote MCP `blue_exec_batch` |
+| 批量执行 | Remote MCP `blue_exec_api`，传 `calls` 而不是 `api_code` / `body` |
 | `run_python_script` | `sh <plugin_root>/runtime/bin/ideaswork runtime python --runtime-endpoint <endpoint> --runtime-lease-stdin ...` |
 | `sandbox_bash` | Host Bash，在当前 Skill workspace 执行 |
 | 平台 Skill 的异步等待 | 统一用 `sh <plugin_root>/runtime/bin/ideaswork runtime wait-result --runtime-endpoint <endpoint> --runtime-lease-stdin ...`。同批多任务必须使用一次 `--tasks-json` 调用。 |
@@ -308,6 +325,9 @@ CLI 输出时，才允许降级到 CLI。
 `wait_result_hint` 时使用其中的查询 API 和完成条件，并从实际创建响应中提取任务查询参数；
 未提供完整信息时先查询 API 文档和 Skill，不能把提交成功、事件订阅或唤醒提示当作最终结果。
 若没有可用查询 API，停止并说明无法在当前宿主取得异步结果。
+
+`wait_result_hint` 带 `task_id` 与 `fallback` 时（创建响应里能取到平台基础任务 ID），主查询查不到就直接用
+`fallback.query_api_code` 和 `fallback.params`，同样先查它的文档。
 
 提醒：任何异步任务，若按 Skill 原语或 `wait_result_hint` 指向的查询 API 查不到结果，可改用
 `task_status` 尝试，`task_id` 取创建响应里的真实任务 ID，完成条件看 `data.status`（可加

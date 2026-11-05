@@ -11,7 +11,7 @@
    需求、SOP 或想法但没有具体 Skill 用 `sampling`。明确名称、目标、输入、输出和完成判据，不重复采集已知字段。
 2. 本地创作、台账和静态校验不要求远端登录、builder Context 或写入权限；纯本地任务可直接继续。
    需要远端发现/验证时，Codex Plugin 先检查 Remote MCP 连接；已有有效连接和上下文则复用。
-   调用 `get_current_context` 确认工作区；需要更换团队或项目时，调用 `browse_contexts` 获取当前最新候选，再用本次结果中的名称通过 `ask_user_interact` 的 `select` 让用户明确选择。结束本轮，等待普通用户消息中的 `interaction_response`；仅在 `action=confirm` 时把所选项对应的**本次** `context_ref` 传给 `switch_context`，取消则不切换。无需提交/查询表单状态；不要使用 MCP App 展开卡片或缓存的 ref，也不要读取或复用独立 CLI 的 OAuth session。
+   调用 `get_current_context` 确认工作区；**默认不切换工作区**，只有用户明确要求、或当前工作区确实无法继续时才更换，且先把“从 A → 到 B”告诉用户；需要更换团队或项目时，调用 `browse_contexts` 获取当前最新候选，再用本次结果中的名称通过 `ask_user_interact` 的 `select` 让用户明确选择。结束本轮，等待普通用户消息中的 `interaction_response`；仅在 `action=confirm` 时把所选项对应的**本次** `context_ref` 传给 `switch_context`，取消则不切换。无需提交/查询表单状态；不要使用 MCP App 展开卡片或缓存的 ref，也不要读取或复用独立 CLI 的 OAuth session。
 
    `select` 表单的固定写法（`tabs` 是数组对象；`options` 是 `{label, value}` 对象数组，`value` 填该选项**本次**的
    `context_ref`；说明文字放在调用前，调用后立刻结束本轮，不再输出或调用工具）：
@@ -32,7 +32,7 @@
    ```bash
    ideaswork login --env <prod|preprod|dev|local>
    ideaswork context list
-   ideaswork context use <context_ref> --mode builder
+   ideaswork context use <context_ref> --mode builder --confirm-switch   # 仅在用户同意切换工作区后；同工作区只切 mode 不需要
    ideaswork skill doctor
    ```
 

@@ -5,7 +5,7 @@ description: 通过 IdeasWork Remote MCP 或独立 CLI 查询、调用和组合�
 
 # IdeasWork Capability
 
-> 本制品不内置原生程序：首次需要本地 Runtime Core 命令前，先读 [references/PLUGIN_RUNTIME.md](references/PLUGIN_RUNTIME.md) 检查并按指引安装。
+> 本制品不内置原生程序：首次需要本地 Runtime Core 命令前，先读 [references/PLUGIN_RUNTIME.md](references/PLUGIN_RUNTIME.md) 检查并按指引安装；Windows 原生环境用其中的 `.cmd` 写法，不要用 `sh`。
 
 ## 执行入口选择（先于后续工具指引）
 
@@ -54,7 +54,24 @@ description: 通过 IdeasWork Remote MCP 或独立 CLI 查询、调用和组合�
   （`wait-result`、`runtime python`、素材上传）才需要 lease。不要在 `get_current_context` / `switch_context` 之后预先取；
   在确定要做本地动作的那一轮取，并在有效期内复用。
 - 用户原话和 API 文档默认值能确定的参数不要再问；必须问时一次问全（见「MCP Apps」）。
-- 互相独立、文档均已查询的多个操作，用一次 `blue_exec_batch`，不拆成多轮单调用。
+- 互相独立、文档均已查询的多个操作，用一次 `blue_exec_api`（传 `calls` 批量），不拆成多轮单调用。
+
+## 工作区边界（默认不切换）
+
+默认只在**当前工作区**里工作：有 active Context 就用它，没有就用登录时的 OAuth 默认团队/项目。
+
+- **不得自行更换团队或项目。** 找不到 Skill、API 没权限、素材不在这里、想“试试别的项目”，都不构成理由：如实告诉用户，
+  问他是否要换，不要自己去 `browse_contexts` / `context list` 找出路。
+- **只有两种情况会切换**：① 用户在本轮明确要求切换（点名了团队/项目）；② 当前工作区确实无法继续（默认项目缺失或不可访问、
+  服务端明确要求选择工作区、原 Context 丢失需要恢复）。第②种必须**先停下**，说明原因并列出本次候选，等用户明确同意；
+  不得静默切换，不得替用户猜选，不得回落到 OAuth 默认项目冒充恢复。
+- **切换前把“从 A → 到 B”（团队/项目名称）告诉用户并得到同意**。一次同意只对应这一次切换；之后要回原工作区同样要问。
+  切换后用 `get_current_context`（CLI：`ideaswork context`）再确认一次当前工作区。
+- **不算切换、无需询问**：省略 `context_ref` 初始化 Context、只切 mode、复用当前会话。
+- **CLI 有硬门**：`context use <ref>`、`team use`、`project use` 切到与当前不同的工作区时会被拒绝，返回
+  `workspace_switch_requires_confirmation`（消息里有当前与目标名称）。用户同意后才加 `--confirm-switch` 重跑；
+  用户本轮自己明确要求切换，视同已同意，可直接加。**不得为了让命令通过而自行添加。** MCP 的
+  `switch_context(context_ref=…)` 服务端目前不强制，同样遵守本条。
 
 ## 连接与上下文
 
@@ -68,7 +85,7 @@ description: 通过 IdeasWork Remote MCP 或独立 CLI 查询、调用和组合�
    switch_context(mode="capability")
    ```
    不传 `context_ref` 时服务端使用 OAuth 默认团队和项目。
-3. 用户要更换团队或项目时，调用 `browse_contexts` 获取当前最新候选；不要依赖 MCP App 展开卡片或旧的
+3. 用户要更换团队或项目时（见上文「工作区边界」：先把“从 A → 到 B”告诉用户并得到同意），调用 `browse_contexts` 获取当前最新候选；不要依赖 MCP App 展开卡片或旧的
    `context_ref`。用本次结果中的名称通过 `ask_user_interact` 的 `select` 让用户明确选择，结束本轮等待提交，
    再将该选项对应的本次 `context_ref` 传给 `switch_context(context_ref=..., mode="capability")`。
 4. 仅当用户明确要新建平台会话、或需要隔离一项新工作时传 `new_session=true`。普通连续调用不得新开会话。
@@ -94,11 +111,11 @@ description: 通过 IdeasWork Remote MCP 或独立 CLI 查询、调用和组合�
    不靠 `api_code` 名称猜分类、不要求为普通 API 先 pull 一个 Skill。
    服务端仍校验 scope、工作区/资源权限、额度、依赖和审批。若旧部署仍返回 allowlist/grant 限制，以真实拒绝为准，
    汇报尚未开放，不通过切 mode、拉不相关 Skill、本地脚本、CLI 或裸 HTTP 绕过；Runtime lease 不扩大权限。
-4. 只有多个操作彼此独立、每项文档均已查询、且不需要逐项根据结果调整时才用 `blue_exec_batch`。否则按顺序
+4. 只有多个操作彼此独立、每项文档均已查询、且不需要逐项根据结果调整时才用 `blue_exec_api` 的 `calls` 批量。否则按顺序
    调用 `blue_exec_api`。
 5. 若返回异步任务 ID，统一使用本地 Runtime Core `sh <plugin_root>/runtime/bin/ideaswork runtime wait-result` 等待并获取结果。
    使用 `wait_result_hint` 的查询 API 和完成条件；其文档若还没查询过就先查，按创建响应中的真实任务 ID
-   组织查询参数；缺少查询 API，或 hint 的查询 API 查不到结果（如 Remote MCP 下 `t2v_session_task_create`
+   组织查询参数；hint 带 `fallback` 时主查询查不到就用它；缺少查询 API，或 hint 的查询 API 查不到结果（如 Remote MCP 下 `t2v_session_task_create`
 的 `t2v_session_task_query` 按会话恒为空，应用 `data.data.base_task_id` 查 `task_status`）时，
 仅在 `task_status` 已授权且文档确认适用时使用它。
    需要 lease 时调用 `create_runtime_lease` 取得当前 capability Context 的短期 lease（已确定是异步时可与

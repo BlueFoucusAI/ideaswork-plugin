@@ -2,7 +2,7 @@
 # Thin Runtime Core launcher. The native program is not bundled: it is installed by the npm package
 # pinned to this plugin's exact version (see skills/*/references/PLUGIN_RUNTIME.md).
 set -eu
-spec='@ideaswork/cli-preprod@2026.1021.142038-preprod'
+spec='@ideaswork/cli-preprod@2026.1105.191228-preprod'
 if ! command -v npx >/dev/null 2>&1; then
   echo "IdeasWork: Node.js 22+ (npx) is required for the local Runtime Core." >&2
   exit 2
@@ -19,4 +19,30 @@ else
   prefix="$(mktemp -d 2>/dev/null ||
     node -p 'require("fs").mkdtempSync(require("path").join(require("os").tmpdir(), "ideaswork-npx-"))')"
 fi
-exec npx --yes --prefer-offline --prefix "$prefix" "$spec" --runtime-only "$@"
+# Fast path: the exact version is already in npx's local cache, so run it without resolving the registry.
+# `--offline` keeps this usable in a sandbox with no network; `--no-install` makes a miss a miss instead of
+# a silent download. `--help` is answered by the launcher itself whatever the native program's state.
+if npx --yes --no-install --offline --prefix "$prefix" "$spec" --runtime-only --help </dev/null >/dev/null 2>&1; then
+  exec npx --yes --no-install --offline --prefix "$prefix" "$spec" --runtime-only "$@"
+fi
+# First run of this version, or a plugin upgrade: revalidate the packument so a version published after
+# this npm cache was last written is still found. The old launcher asked npm not to revalidate at all, so
+# the cached version list could make a published version look missing (ETARGET). When the registry is
+# unreachable npm falls back to the cached response, so this does not turn an offline install into a
+# different failure. stdin is closed here; the real command below keeps the caller's stdin (the lease).
+if ! probe="$(npx --yes --prefer-online --prefix "$prefix" "$spec" --runtime-only --help </dev/null 2>&1)"; then
+  case "$probe" in
+    *ETARGET*|*"No matching version"*)
+      echo "IdeasWork: npm registry 上查不到 ${spec}，或本地缓存缺少该版本且当前无法联网刷新。" >&2
+      echo "  请确认该版本已发布并与插件版本一致；不要改用其他版本，也不要清空整个 npm 缓存。" >&2 ;;
+    *ENOTFOUND*|*EAI_AGAIN*|*ECONNREFUSED*|*ECONNRESET*|*ETIMEDOUT*|*ENETUNREACH*|*EHOSTUNREACH*|*"network request"*|*"network connectivity"*)
+      echo "IdeasWork: 无法下载本地 Runtime Core（${spec}）：当前环境没有网络（沙箱里常见）。" >&2
+      echo "  请让用户放开网络权限，或先在有网络的终端运行一次本命令完成安装，然后重试；不要改用其他版本。" >&2 ;;
+    *)
+      echo "IdeasWork: 本地 Runtime Core（${spec}）安装失败：" >&2 ;;
+  esac
+  printf '%s\n' "$probe" >&2
+  exit 1
+fi
+# The probe installed the exact version; run it from the now-warm local cache, still without a registry lookup.
+exec npx --yes --no-install --offline --prefix "$prefix" "$spec" --runtime-only "$@"

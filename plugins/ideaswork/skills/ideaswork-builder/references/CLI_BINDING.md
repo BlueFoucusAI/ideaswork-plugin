@@ -8,8 +8,11 @@ conversion/sampling 模式、渐进加载、用户授权、API grant 或 draft/p
   请用户完成独立 CLI OAuth。不能读取 Plugin token；Plugin 已授权不等于 CLI 已登录。
 - 本地编写、`skill validate` 和 `skill gaps` 不要求先登录、建立 builder Context 或拥有 write。
   从已有成果沉淀时复用需求/证据，仍按 conversion/sampling 阶段推进，不重跑已成功的昂贵步骤。
-- 远端动作先复用当前有效工作区；需要换工作区才 `context list --json` 并让用户确认。
-  只有动作要求 builder mode 时才 `context use <ref> --mode builder`；同工作区可省略 ref 并使用 `--reuse-session`。
+- 远端动作先复用当前有效工作区，**默认不切换**；需要换工作区才 `context list --json`，把“从 A → 到 B”告诉用户并得到同意，
+  再 `context use <ref> --confirm-switch`（不带会被拒绝，Agent 不得自行添加）。
+   CLI 按团队/项目身份判断，不比较 ref 字符串；服务端每次列表换发新 ref，无法解析的 ref 返回
+   `context_ref_not_listed`，此时重新 `context list` 取本次 ref，不要改用别的工作区。
+  只有动作要求 builder mode 时才 `context use --mode builder`；同工作区可省略 ref 并使用 `--reuse-session`。
   旧部署可能仍创建新平台会话，需保留原任务/结果关联并重新核对 grant/lease。正式 CLI 制品环境由渠道固定，不支持 `--env`。
 - 发现已有 Skill 用 `skill list --query "..." --json`；列当前授权 API 用 `api list --json`；
   查询文档用 `api docs <code> --json`。Builder 不隐式继承 capability 或其他 Skill grant，
@@ -23,11 +26,25 @@ conversion/sampling 模式、渐进加载、用户授权、API grant 或 draft/p
 - 异步任务用 `runtime wait-result` 的 `--query-api-code / --params-json / --completion-json`，
   多任务用 `--tasks-json`；可显式 `--state-file`，超时退出 3 后 `--resume <文件>`，不重复创建任务。
   中断/网络结果不明/Context 丢失先核对实际状态，不盲目重跑有副作用的验证脚本。
-- 本地编辑、`skill validate`、`skill gaps` 沿用各阶段规则。`skill push <draft> --name <name> --json` 只在用户明确要求提交时运行，
-  未被要求就不运行、不提及；它只创建 draft，不是 publish。它先本地打包校验再探测 `push_skill`，探测不到返回
-  `tool_unavailable / keep_local_draft` 且不改动 Context，此时保留草稿并如实说明，不记 gaps、不重试。scope 或业务权限不足同样保留草稿。
+- 本地编辑、`skill validate`、`skill gaps` 沿用各阶段规则；`skill push` 在上传前会先跑与服务端相同的校验（SKILL.md、api.json、`skill_sop.json` 结构，
+  名称/版本号/分类格式，100 MiB 解压上限），不通过时返回 `validation_failed`（退出码 1）且不上传，按提示修好草稿再推。草稿必须有 `api.json`：
+  `{"<api_code>": "一句用途"}`，不调用平台 API 时写 `{"__desc": "本技能不依赖平台 API"}`（空对象与旧数组会被拒），只缺这一项就补文件、不重写 SKILL.md。
+  `skill push <draft> --name <name> --json`（给已有 Skill 加版本用
+  `--skill-id <id>`）只在用户明确要求提交时运行，未被要求就不运行、不提及。它不再走 `push_skill` 工具，而是先本地打包校验，
+  再用自己的 OAuth 取 Runtime lease 做 HTTP 上传；沿用已有 Context，没有 active context 才切到 `builder`。lease 载荷没有
+  `skill_push_endpoint` 时返回 `tool_unavailable / keep_local_draft` 且不上传，此时保留草稿并如实说明，不记 gaps、不重试。
+  结果是待审核版本（pending），不是 draft，也不是 publish，属主在 Studio 版本历史接受后才生效。
+  `--set-current`、`--visibility` 默认不传，**不得主动添加**，先在对话里问用户；`--visibility` 只用于新建（`private` 或 `team`），
+  更新已有 Skill 不加。网络中断或网关 5xx 后返回 `push_result_unknown`（退出码 6）不自动重试，先让用户在「我的 Skill」或
+  版本历史确认。连接建立前就失败（沙箱断网、域名解析失败、连接被拒）返回 `push_network_unreachable`（退出码 1，`retryable=true`）：
+  请求没有发出，草稿与线上版本不变，不必查版本历史；向用户说明并申请放开网络权限，放开后再推一次。scope 或业务权限不足同样保留草稿。
+  核实一次推送生成了什么：`ideaswork skill versions <skill_id> --json`（只读，仅 OAuth CLI；新建 Skill 不知道 id 时先 `skill list --query <名称>`）。
+  CLI 没有接受/回滚/改分享范围的命令，这些在 Skill Studio 或 Plugin 的属主管理工具里做。
   Plugin 任务不能自动转 CLI OAuth 绕过；已具 scope 但业务权限不足不重复 login，按真实拒绝引导申请业务权限。
+- 心影图谱预览用 `skill sop <草稿目录>`：本地输出 Mermaid 概览，不联网、无交互与评论、不校验结构（结构用 `skill validate`）；需要交互视图和对齐检查时使用 Plugin 的 `show_skill_sop`。已推送的 Skill 用 `skill sop --skill-id <id> [--version-id <id>]`。
 
 以上命令均通过 `ideaswork` 调用并复用原 `--task`。`--json` 成功保留业务 payload，失败带
 `error_code / next_action / retryable`。状态文件不存凭证但可能有业务隐私，勿提交。
-Windows Python bridge 当前需要 WSL；自动唤醒、富交互卡片和新审批通道不在 CLI 能力承诺中。
+`runtime python` 在所有平台都需要本机 Python 3.10+（macOS 自带的 `/usr/bin/python3` 是 3.9，不能用）。版本不够时返回
+`python_version_unsupported`（退出码 2），脚本不会执行：把消息里的解释器路径和版本告诉用户，请用户装 3.10+ 后用
+`--python-executable` 指定，不要改写脚本去兼容旧版本。Windows 原生可运行 Python bridge，入口用 `.cmd`，JSON 参数用 `@文件`；portable 自更新仍需 WSL；自动唤醒、富交互卡片和新审批通道不在 CLI 能力承诺中。
