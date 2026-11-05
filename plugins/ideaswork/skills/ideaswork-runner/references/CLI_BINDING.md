@@ -38,7 +38,9 @@ CLI 内部仍连接同一 Remote MCP 服务，不使用旧 Local MCP、`local_rp
 3. **默认不切换工作区。** 仅在用户明确更换工作区，或服务端明确要求选择工作区（默认项目缺失/不可访问）时，先
    `ideaswork context list --json --task <task>`，把本次团队/项目候选和“从 A → 到 B”展示给用户。
    用户确认后 `ideaswork context use <本次context_ref> --mode skill_runner --confirm-switch --task <task> --json`；
-   不带 `--confirm-switch` 会被拒绝（`workspace_switch_requires_confirmation`），**不得为让命令通过自行添加**。
+   不带 `--confirm-switch` 切换工作区会被拒绝（`workspace_switch_requires_confirmation`），**不得为让命令通过自行添加**。
+   CLI 按团队/项目身份判断是否切换，不比较 ref 字符串；服务端每次列表都会换发新 ref，旧 ref 仍可用。
+   无法解析的 ref 返回 `context_ref_not_listed`，此时重新 `context list` 取本次 ref，不要改用别的工作区。
    找不到 Skill、权限不足都不是切换的理由，如实告诉用户即可。
    同工作区仅切 mode 可省略 ref，并加 `--reuse-session`；不为普通后续步骤反复新开平台会话。
 4. 按返回的 `workspace_dir / runtime_dir` 读取受管 CLAUDE.md 和主 SKILL.md，子技能在对应阶段才读。

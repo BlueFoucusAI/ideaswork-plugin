@@ -10,6 +10,8 @@ conversion/sampling 模式、渐进加载、用户授权、API grant 或 draft/p
   从已有成果沉淀时复用需求/证据，仍按 conversion/sampling 阶段推进，不重跑已成功的昂贵步骤。
 - 远端动作先复用当前有效工作区，**默认不切换**；需要换工作区才 `context list --json`，把“从 A → 到 B”告诉用户并得到同意，
   再 `context use <ref> --confirm-switch`（不带会被拒绝，Agent 不得自行添加）。
+   CLI 按团队/项目身份判断，不比较 ref 字符串；服务端每次列表换发新 ref，无法解析的 ref 返回
+   `context_ref_not_listed`，此时重新 `context list` 取本次 ref，不要改用别的工作区。
   只有动作要求 builder mode 时才 `context use --mode builder`；同工作区可省略 ref 并使用 `--reuse-session`。
   旧部署可能仍创建新平台会话，需保留原任务/结果关联并重新核对 grant/lease。正式 CLI 制品环境由渠道固定，不支持 `--env`。
 - 发现已有 Skill 用 `skill list --query "..." --json`；列当前授权 API 用 `api list --json`；
