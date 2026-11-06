@@ -4,7 +4,7 @@
   先确认当前 Context 和 API 文档/grant，不能把本机文件路径直接发给 `blue_exec_api`。
 - Remote MCP 模式：从当前 MCP 的 `create_runtime_lease`（或 pull 返回）取得 lease，
   通过随包启动脚本执行 `runtime/bin/ideaswork material upload <文件> --runtime-endpoint <地址>
-  --runtime-lease-stdin --json`；lease 经 stdin 或父进程环境传入，不写入文件/日志，
+  --runtime-lease-stdin --json`；lease 经 stdin 传入，不写入文件/日志或环境变量，
   不要求独立 CLI 登录。
 - 显式 lease 缺失/过期：通过当前 MCP 获取新的 lease；Context 改变先确认 Context。
   不自动改用 CLI 自己的账号，也不因权限拒绝切换入口。

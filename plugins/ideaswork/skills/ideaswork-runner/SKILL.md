@@ -15,12 +15,26 @@ description: IdeasWork（心影）已发布 Skill 的发现与运行入口。用
 - 已配置 Remote MCP 的制品/任务：沿用下文 Remote MCP 主链路。连接缺失时按插件连接指引恢复，
   不因工具暂未注入自动切换 CLI 身份，不把 CLI 当作权限或审批失败的绕过通道。
 
-
 把一个**已发布**的线上 Skill 拉到本地，优先按它自己的指引和 `api.json` 跑完。
 不在 immutable checkout 上直接修改业务指引。用户明确要修改、转化或把执行成果沉淀成新 Skill 时，
 衔接 `ideaswork-builder` 并使用独立草稿；直接使用/组合能力时可衔接 `ideaswork-capability`。
 三个指引不是账号角色，不要求换包或重新登录；交接保留已确认的工作区、素材、参数、任务 ID 与真实结果。
 连续调用多个 API 不自动进入 Builder。
+
+## Windows 原生环境（先于任何 runtime 命令；覆盖下文所有 `sh` 写法）
+
+当前宿主机是 Windows（宿主报 win32，原生环境只有 PowerShell / `cmd.exe`）时：
+
+- **只从原生 Windows PowerShell 启动 CLI**：插件用 `& "<plugin_root>\runtime\bin\ideaswork.cmd" ...`，
+  独立 CLI 用 `& ideaswork ...`（或按 README 用原生 `ideaswork.exe` 绝对路径）。
+  不要在宿主的 JavaScript/Node 执行环境里用 `child_process` 启动 `ideaswork.exe`，也不要走 WSL / `sh`：
+  已知这条路径会立刻返回 `command_failed`（`Local runtime command failed`、退出 1、stderr 为空），
+  没有文件落盘；同一个入口改成 PowerShell 后，主 Skill 和全部 linked 依赖正常下载。
+- **lease 走管道，不走参数/环境变量**：`$lease | & <入口> ... --runtime-lease-stdin`；子进程 `input`
+  通道、继承句柄和 `$env:` 都是已失败的方式。JSON 参数先写文件再用 `@文件`。
+- checkout 报 `command_failed` 且目标目录为空时，按 [references/WINDOWS.md](references/WINDOWS.md)
+  排障（先看调用方式，再看 `local_io_error` 的落盘原因）；不要据此重新 `pull_skill`、换工作区，或
+  判定 Skill / 权限有问题。
 
 ## API 范围：默认聚焦与远端准入分开
 
@@ -211,6 +225,9 @@ browse_skills()  # 每次发现请求只调用一次；App 在本地搜索/分�
 - Plugin 形态通过随包的 `runtime/bin/ideaswork` 启动脚本调用按需安装的 Runtime Core 执行 `runtime checkout`，
   不依赖独立 CLI 的登录态，也不调用独立 CLI 的 OAuth `skill pull`。checkout 下载由当前 Context 的 Runtime lease
   endpoint 完成，archive 和 bearer 凭证不需要暴露给业务 Python 子进程。
+- **Windows 原生环境不能直接执行上面的 `sh` 写法**：换成 PowerShell + `runtime\bin\ideaswork.cmd`，
+  JSON 走 `@文件`，lease 经 stdin 管道传入（见 [references/WINDOWS.md](references/WINDOWS.md)）；
+  用 JS/Node 子进程启动或把 lease 放进环境变量时，checkout 会以 `command_failed` 结束且不落盘。
 - 主 Skill 的 `CLAUDE.md` / linked prompt 编排由后续 Host 物化步骤处理，不能为了省步骤改写原 Skill。
 - standalone CLI 形态可以使用 `ideaswork skill list/pull` 完成同一 Remote MCP control-plane 操作。
 - **checkout 的输出是后续所有路径的唯一权威**：`runtime_dir`（技能运行目录）和 `workspace_dir`
@@ -364,4 +381,4 @@ sh <plugin_root>/runtime/bin/ideaswork runtime wait-result \
 
 ## 本地素材上传
 
-用户指定本地文件、或 Skill 需要将本地产物入素材库时，先读 [references/MATERIAL_UPLOAD.md](references/MATERIAL_UPLOAD.md)。要点：不能把本机文件路径直接发给 `blue_exec_api`；超时/结果未知不自动重传，先检查素材库。
+用户指定本地文件、或 Skill 需要将本地产物入素材库时，先读 [references/MATERIAL_UPLOAD.md](references/MATERIAL_UPLOAD.md)。要点：不能把本机文件路径直接发给 `blue_exec_api`；超时/结果未知不自动重传，先检查素材库。Windows 原生环境的启动方式与 lease 传递见 [references/WINDOWS.md](references/WINDOWS.md)。
