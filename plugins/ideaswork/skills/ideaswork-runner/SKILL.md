@@ -15,12 +15,26 @@ description: IdeasWork（心影）线上已发布 Skill 的**首要发现与运�
 - 已配置 Remote MCP 的制品/任务：沿用下文 Remote MCP 主链路。连接缺失时按插件连接指引恢复，
   不因工具暂未注入自动切换 CLI 身份，不把 CLI 当作权限或审批失败的绕过通道。
 
-
 把一个**已发布**的线上 Skill 拉到本地，优先按它自己的指引和 `api.json` 跑完。
 不在 immutable checkout 上直接修改业务指引。用户明确要修改、转化或把执行成果沉淀成新 Skill 时，
 衔接 `ideaswork-builder` 并使用独立草稿；直接使用/组合能力时可衔接 `ideaswork-capability`。
 三个指引不是账号角色，不要求换包或重新登录；交接保留已确认的工作区、素材、参数、任务 ID 与真实结果。
 连续调用多个 API 不自动进入 Builder。
+
+## Windows 原生环境（先于任何 runtime 命令；覆盖下文所有 `sh` 写法）
+
+当前宿主机是 Windows（宿主报 win32，原生环境只有 PowerShell / `cmd.exe`）时：
+
+- **只从原生 Windows PowerShell 启动 CLI**：插件用 `& "<plugin_root>\runtime\bin\ideaswork.cmd" ...`，
+  独立 CLI 用 `& ideaswork ...`（或按 README 用原生 `ideaswork.exe` 绝对路径）。
+  不要在宿主的 JavaScript/Node 执行环境里用 `child_process` 启动 `ideaswork.exe`，也不要走 WSL / `sh`：
+  已知这条路径会立刻返回 `command_failed`（`Local runtime command failed`、退出 1、stderr 为空），
+  没有文件落盘；同一个入口改成 PowerShell 后，主 Skill 和全部 linked 依赖正常下载。
+- **lease 走管道，不走参数/环境变量**：`$lease | & <入口> ... --runtime-lease-stdin`；子进程 `input`
+  通道、继承句柄和 `$env:` 都是已失败的方式。JSON 参数先写文件再用 `@文件`。
+- checkout 报 `command_failed` 且目标目录为空时，按 [references/WINDOWS.md](references/WINDOWS.md)
+  排障（先看调用方式，再看 `local_io_error` 的落盘原因）；不要据此重新 `pull_skill`、换工作区，或
+  判定 Skill / 权限有问题。
 
 ## API 范围：默认聚焦与远端准入分开
 
@@ -123,11 +137,11 @@ description: IdeasWork（心影）线上已发布 Skill 的**首要发现与运�
    `runtime_lease`，随 pull 输出中的 `runtime_lease` 字段下发），后续 Runtime Core 命令直接复用。
    只把它们传给 Runtime Core **parent** 命令，不要写进 Skill 文件、普通日志或传给 Python
    子进程。仅在 lease 失效、额度耗尽或 Context 改变后，才调用 `create_runtime_lease` 重签（有效
-   Context 的重复请求会返回同一 lease，**不会延长它的到期时间**）。lease 最长 15 分钟，
-   Runtime Core 子进程不能自行续租。以返回的 `expires_in` / `remaining_calls` 判断剩余预算：
-   不为「把 600 秒升级为 900 秒」提前重签；若等待可能超过当前剩余有效期，缩短本段
-   `wait_result` 的 `max_polls`，待本段完成或 lease 真实失效后再按需重签。新签发时可请求
-   最长 900 秒，但 900 秒的参数不改变复用中的 lease。**同一 lease 的 Runtime Core
+   Context 的重复请求会返回同一 lease，**不会延长它的到期时间**）。**lease 有效期由服务端下发，
+   不在文档或脚本里写死**；Runtime Core 子进程不能自行续租。以返回的 `expires_in` /
+   `remaining_calls` 判断剩余预算，不为了延长有效期提前重签；若等待可能超过当前剩余有效期，
+   缩短本段 `wait_result` 的 `max_polls`，待本段完成或 lease 真实失效后再按需重签。重签的
+   新 lease 有效期同样由服务端决定，不会改变仍在复用中的 lease。**同一 lease 的 Runtime Core
    调用应串行**，不要用多个并发 `wait_result` 进程轮询同一批任务。不可把租约或其值写入磁盘。
 4. 读 [references/EXECUTION_PARITY.md](references/EXECUTION_PARITY.md) 的「能力映射」和
    「已知失真点」两节。本地与平台的全部语义差在那份文件里，本文不重复。
@@ -251,9 +265,12 @@ browse_skills()  # 每次发现请求只调用一次；App 在本地搜索/分�
 - checkout 会先下载并验证主 Skill 与全部 linked archive，再统一物化；linked 的 `skill_dir` 位于主目录
   `linked/<子技能名>/`，`runtime_dir` 位于主 Skill 的 `workspace/.claude/skills/<子技能名>/`，不创建
   独立的 `.avp_run/<子技能名>/`。缺失依赖按上述恢复流程处理；明确无权访问时不绕过权限。
-- Codex Plugin 使用随包 Go 二进制提供的 `runtime checkout`，不依赖已安装的全局 CLI，
-  也不调用独立 CLI 的 OAuth `skill pull`。checkout 下载由当前 Context 的 Runtime lease endpoint 完成，
-  archive 和 bearer 凭证不需要暴露给业务 Python 子进程。
+- Codex Plugin 通过随包的 `runtime/bin/ideaswork` 启动脚本调用按需安装的 Runtime Core，不依赖已安装的
+  全局 CLI，也不调用独立 CLI 的 OAuth `skill pull`。checkout 下载由当前 Context 的 Runtime lease
+  endpoint 完成，archive 和 bearer 凭证不需要暴露给业务 Python 子进程。
+- **Windows 原生环境不能直接执行上面的 `sh` 写法**：换成 PowerShell + `runtime\bin\ideaswork.cmd`，
+  JSON 走 `@文件`，lease 经 stdin 管道传入（见 [references/WINDOWS.md](references/WINDOWS.md)）；
+  用 JS/Node 子进程启动或把 lease 放进环境变量时，checkout 会以 `command_failed` 结束且不落盘。
 - 主 Skill 的 `CLAUDE.md` / linked prompt 编排由后续 Host 物化步骤处理，不能为了省步骤改写原 Skill。
 - standalone CLI 形态可以使用 `ideaswork skill list/pull` 完成同一 Remote MCP control-plane 操作。
 - **checkout 的输出是后续所有路径的唯一权威**：`runtime_dir`（技能运行目录）和 `workspace_dir`
@@ -412,7 +429,8 @@ sh <plugin_root>/runtime/bin/ideaswork runtime wait-result \
   先确认当前 Context 和 API 文档/grant，不能把本机文件路径直接发给 `blue_exec_api`。
 - Remote MCP 模式：从当前 MCP 的 `create_runtime_lease`（或 pull 返回）取得 lease，
   使用随包 `runtime/bin/ideaswork material upload <文件> --runtime-endpoint <地址>
-  --runtime-lease-stdin --json`；lease 经 stdin 或父进程环境传入，不写入文件/日志，
+  --runtime-lease-stdin --json`；lease 只经 stdin 传入（Windows 见
+  [references/WINDOWS.md](references/WINDOWS.md)），不写入文件/日志或环境变量，
   不要求独立 CLI 登录。
 - 显式 lease 缺失/过期：通过当前 MCP 获取新的 lease；Context 改变先确认 Context。
   不自动改用 CLI 自己的账号，也不因权限拒绝切换入口。

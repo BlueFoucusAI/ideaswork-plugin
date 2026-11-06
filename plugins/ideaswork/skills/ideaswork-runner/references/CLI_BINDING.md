@@ -26,6 +26,18 @@ CLI 内部仍连接同一 Remote MCP 服务，不使用旧 Local MCP、`local_rp
   正式制品环境由渠道固定，不支持 `--env`；未绑定源码的 `--env` 仅供开发调试。
 - `--json` 成功时保留业务 payload；失败读取 `error_code / next_action / retryable`，不要靠猜错误文本恢复。
 
+## Windows 原生入口
+
+- Windows 原生环境没有 `sh`（Git Bash / WSL 的 `sh` 不是支持路径）：用
+  `& "<plugin_root>\runtime\bin\ideaswork.cmd" ...`，独立 CLI 用 PowerShell
+  调 PATH 上的 `ideaswork`（或按 README 用原生 `ideaswork.exe` 绝对路径）。不要用 WSL / `sh`，
+  也不要在宿主的 JavaScript/Node 执行环境里用 `child_process` 启动 CLI：已知会立刻返回
+  `command_failed` 且不落盘，同一个入口换成 PowerShell 后正常。
+- lease 只走 stdin 管道（`$lease | & <入口> ... --runtime-lease-stdin`），不要用环境变量、子进程
+  `input` 通道或继承句柄；JSON 参数先写文件再用 `@文件`。
+- checkout 报 `command_failed` 且目录为空时，先按 [WINDOWS.md](WINDOWS.md) 查调用方式，再看
+  `local_io_error` 的落盘原因；不重新 `pull_skill`、不换工作区、不判定 Skill 或权限有问题。
+
 ## 发现与拉取
 
 1. 用户找线上 Skill：`ideaswork skill list --query "<用户目标>" --json --task <task>`。
