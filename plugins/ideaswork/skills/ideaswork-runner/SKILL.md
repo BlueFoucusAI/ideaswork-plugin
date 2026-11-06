@@ -137,12 +137,12 @@ description: IdeasWork（心影）已发布 Skill 的发现与运行入口。用
    只把它们传给 Runtime Core **parent** 命令，不要写进 Skill 文件、普通日志或传给 Python
    子进程。仅在 lease 失效、额度耗尽或 Context 改变后，才调用 `create_runtime_lease` 重签（有效
    Context 的重复请求会返回同一 lease，**不会延长它的到期时间**）；入参以 MCP `tools/list` 返回的 schema 为准，
-   不自行编造。lease 最长 15 分钟，
-   Runtime Core 子进程不能自行续租。以返回的 `expires_in` / `remaining_calls` 判断剩余预算：
-   不为「把 600 秒升级为 900 秒」提前重签；若等待可能超过当前剩余有效期，缩短本段
-   `wait_result` 的 `max_polls`，待本段完成或 lease 真实失效后再按需重签。重签的新 lease
-   有效期最长 900 秒，但这不会改变仍在复用中的 lease。**同一 lease 的 Runtime Core
-   调用应串行**，不要用多个并发 `wait_result` 进程轮询同一批任务。不可把租约或其值写入磁盘。
+   不自行编造。**lease 有效期由服务端下发，不在文档或脚本里写死**；Runtime Core 子进程不能
+   自行续租。以返回的 `expires_in` / `remaining_calls` 判断剩余预算，不为了延长有效期提前重签；
+   若等待可能超过当前剩余有效期，缩短本段 `wait_result` 的 `max_polls`，待本段完成或 lease
+   真实失效后再按需重签。重签的新 lease 有效期同样由服务端决定，不会改变仍在复用中的 lease。
+   **同一 lease 的 Runtime Core 调用应串行**，不要用多个并发 `wait_result` 进程轮询同一批任务。
+   不可把租约或其值写入磁盘。
 4. 读 [references/EXECUTION_PARITY.md](references/EXECUTION_PARITY.md) 的「能力映射」和
    「已知失真点」两节。本地与平台的全部语义差在那份文件里，本文不重复。
 
