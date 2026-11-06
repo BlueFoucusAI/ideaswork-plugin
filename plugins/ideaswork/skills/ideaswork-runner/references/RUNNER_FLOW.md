@@ -47,7 +47,7 @@ flowchart TD
     U -- App 内取数不支持 --> UF["material_pick_request → browse_materials 取数<br/>用户文字确认后用 draft 回填表单"]
     UF --> U
 
-    M -- 平台 API --> P["先查询目标 API 文档<br/>blue_exec_api / blue_exec_batch"]
+    M -- 平台 API --> P["先查询目标 API 文档<br/>blue_exec_api（单次或 calls 批量）"]
     P --> Q{"需要用户审批？"}
     Q -- 否 --> M
     Q -- 是 --> Z["Remote MCP 拒绝执行<br/>说明限制，不绕过审批"]

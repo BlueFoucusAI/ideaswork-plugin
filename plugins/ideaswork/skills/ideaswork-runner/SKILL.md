@@ -5,7 +5,7 @@ description: IdeasWork（心影）线上已发布 Skill 的**首要发现与运�
 
 # IdeasWork Runner
 
-> 本制品不内置原生程序：首次需要本地 Runtime Core 命令前，先读 [references/PLUGIN_RUNTIME.md](references/PLUGIN_RUNTIME.md) 检查并按指引安装。
+> 本制品不内置原生程序：首次需要本地 Runtime Core 命令前，先读 [references/PLUGIN_RUNTIME.md](references/PLUGIN_RUNTIME.md) 检查并按指引安装；Windows 原生环境用其中的 `.cmd` 写法，不要用 `sh`。
 
 ## 执行入口选择（先于后续工具指引）
 
@@ -15,12 +15,26 @@ description: IdeasWork（心影）线上已发布 Skill 的**首要发现与运�
 - 已配置 Remote MCP 的制品/任务：沿用下文 Remote MCP 主链路。连接缺失时按插件连接指引恢复，
   不因工具暂未注入自动切换 CLI 身份，不把 CLI 当作权限或审批失败的绕过通道。
 
-
 把一个**已发布**的线上 Skill 拉到本地，优先按它自己的指引和 `api.json` 跑完。
 不在 immutable checkout 上直接修改业务指引。用户明确要修改、转化或把执行成果沉淀成新 Skill 时，
 衔接 `ideaswork-builder` 并使用独立草稿；直接使用/组合能力时可衔接 `ideaswork-capability`。
 三个指引不是账号角色，不要求换包或重新登录；交接保留已确认的工作区、素材、参数、任务 ID 与真实结果。
 连续调用多个 API 不自动进入 Builder。
+
+## Windows 原生环境（先于任何 runtime 命令；覆盖下文所有 `sh` 写法）
+
+当前宿主机是 Windows（宿主报 win32，原生环境只有 PowerShell / `cmd.exe`）时：
+
+- **只从原生 Windows PowerShell 启动 CLI**：插件用 `& "<plugin_root>\runtime\bin\ideaswork.cmd" ...`，
+  独立 CLI 用 `& ideaswork ...`（或按 README 用原生 `ideaswork.exe` 绝对路径）。
+  不要在宿主的 JavaScript/Node 执行环境里用 `child_process` 启动 `ideaswork.exe`，也不要走 WSL / `sh`：
+  已知这条路径会立刻返回 `command_failed`（`Local runtime command failed`、退出 1、stderr 为空），
+  没有文件落盘；同一个入口改成 PowerShell 后，主 Skill 和全部 linked 依赖正常下载。
+- **lease 走管道，不走参数/环境变量**：`$lease | & <入口> ... --runtime-lease-stdin`；子进程 `input`
+  通道、继承句柄和 `$env:` 都是已失败的方式。JSON 参数先写文件再用 `@文件`。
+- checkout 报 `command_failed` 且目标目录为空时，按 [references/WINDOWS.md](references/WINDOWS.md)
+  排障（先看调用方式，再看 `local_io_error` 的落盘原因）；不要据此重新 `pull_skill`、换工作区，或
+  判定 Skill / 权限有问题。
 
 ## API 范围：默认聚焦与远端准入分开
 
@@ -63,6 +77,23 @@ description: IdeasWork（心影）线上已发布 Skill 的**首要发现与运�
 4. 若 Remote MCP tools 尚未注入，先按下一节的 OAuth 登录门建立 Codex MCP connection；完成前不要用
    CLI 本地登录态或 `List MCP resources` 代替 Catalog 查询。
 
+## 工作区边界（默认不切换）
+
+默认只在**当前工作区**里工作：有 active Context 就用它，没有就用登录时的 OAuth 默认团队/项目。
+
+- **不得自行更换团队或项目。** 找不到 Skill、API 没权限、素材不在这里、想“试试别的项目”，都不构成理由：如实告诉用户，
+  问他是否要换，不要自己去 `browse_contexts` / `context list` 找出路。
+- **只有两种情况会切换**：① 用户在本轮明确要求切换（点名了团队/项目）；② 当前工作区确实无法继续（默认项目缺失或不可访问、
+  服务端明确要求选择工作区、原 Context 丢失需要恢复）。第②种必须**先停下**，说明原因并列出本次候选，等用户明确同意；
+  不得静默切换，不得替用户猜选，不得回落到 OAuth 默认项目冒充恢复。
+- **切换前把“从 A → 到 B”（团队/项目名称）告诉用户并得到同意**。一次同意只对应这一次切换；之后要回原工作区同样要问。
+  切换后用 `get_current_context`（CLI：`ideaswork context`）再确认一次当前工作区。
+- **不算切换、无需询问**：省略 `context_ref` 初始化 Context、只切 mode、复用当前会话。
+- **CLI 有硬门**：`context use <ref>`、`team use`、`project use` 切到与当前不同的工作区时会被拒绝，返回
+  `workspace_switch_requires_confirmation`（消息里有当前与目标名称）。用户同意后才加 `--confirm-switch` 重跑；
+  用户本轮自己明确要求切换，视同已同意，可直接加。**不得为了让命令通过而自行添加。** MCP 的
+  `switch_context(context_ref=…)` 服务端目前不强制，同样遵守本条。
+
 ## 前置条件（按顺序执行）
 
 ### 0. 首次使用的 OAuth 登录门
@@ -94,7 +125,7 @@ description: IdeasWork（心影）线上已发布 Skill 的**首要发现与运�
      不设 `new_session=true`；由服务端复用当前工作区或使用 OAuth 默认团队/项目。绑定成功后立即 `pull_skill`。
      **不得仅因 `active_context` 为空或 mode 不符就弹工作区选择表单**；使用登录携带的默认值不是从候选列表猜选。
    - 只有用户明确要求换团队/项目，或服务端明确要求选择工作区（默认项目缺失/不可访问）时，才调用
-     `browse_contexts` 获取最新候选，再用本次团队/项目名称构造 `ask_user_interact` 的 `select`，
+     `browse_contexts` 获取最新候选（见上文「工作区边界」，先问用户，不静默切换），再用本次团队/项目名称构造 `ask_user_interact` 的 `select`，
      结束本轮等待提交。只把用户所选项对应的本次 `context_ref` 传给 `switch_context`，不用旧卡片或缓存 ref，
      不替用户猜选其他工作区。其他认证/权限失败按实际错误处理，不把选工作区当作通用修复。
    - 只有用户明确要求新会话才设置 `new_session=true`。若明确报告原 Context 丢失，先恢复原工作区，
@@ -106,11 +137,11 @@ description: IdeasWork（心影）线上已发布 Skill 的**首要发现与运�
    `runtime_lease`，随 pull 输出中的 `runtime_lease` 字段下发），后续 Runtime Core 命令直接复用。
    只把它们传给 Runtime Core **parent** 命令，不要写进 Skill 文件、普通日志或传给 Python
    子进程。仅在 lease 失效、额度耗尽或 Context 改变后，才调用 `create_runtime_lease` 重签（有效
-   Context 的重复请求会返回同一 lease，**不会延长它的到期时间**）。lease 最长 15 分钟，
-   Runtime Core 子进程不能自行续租。以返回的 `expires_in` / `remaining_calls` 判断剩余预算：
-   不为「把 600 秒升级为 900 秒」提前重签；若等待可能超过当前剩余有效期，缩短本段
-   `wait_result` 的 `max_polls`，待本段完成或 lease 真实失效后再按需重签。新签发时可请求
-   最长 900 秒，但 900 秒的参数不改变复用中的 lease。**同一 lease 的 Runtime Core
+   Context 的重复请求会返回同一 lease，**不会延长它的到期时间**）。**lease 有效期由服务端下发，
+   不在文档或脚本里写死**；Runtime Core 子进程不能自行续租。以返回的 `expires_in` /
+   `remaining_calls` 判断剩余预算，不为了延长有效期提前重签；若等待可能超过当前剩余有效期，
+   缩短本段 `wait_result` 的 `max_polls`，待本段完成或 lease 真实失效后再按需重签。重签的
+   新 lease 有效期同样由服务端决定，不会改变仍在复用中的 lease。**同一 lease 的 Runtime Core
    调用应串行**，不要用多个并发 `wait_result` 进程轮询同一批任务。不可把租约或其值写入磁盘。
 4. 读 [references/EXECUTION_PARITY.md](references/EXECUTION_PARITY.md) 的「能力映射」和
    「已知失真点」两节。本地与平台的全部语义差在那份文件里，本文不重复。
@@ -143,7 +174,7 @@ App 能完成的筛选或素材选择不要改成模型手写列表；只有明�
 
 | MCP App / 入口 | 用户可完成什么 | Agent 必须怎么做 |
 |---|---|---|
-| **Skill Catalog**：`browse_skills()` | 浏览当前账号可见的已发布远端 Skill；按**Skill 分类**、名称、来源、状态、描述筛选；本地翻页；选择一个 Skill。分类 chip 是发现 Skill 的首选入口，卡片上的 `category` 是该 Skill 的权威分类。 | 用户问“有什么 Skill”“有哪些分类”“按类别找/推荐 Skill”时，**只调用一次且不传参数**，然后结束本轮等待用户在 Catalog 中按分类或搜索选择。不要手写一份分类/Skill 清单，不要调用 `get_skill_catalog_records`，不要为翻页或换分类再次调用 `browse_skills`。 |
+| **Skill Catalog**：`browse_skills()` | 浏览当前账号可见的已发布远端 Skill；按**Skill 分类**、名称、来源、状态、描述筛选；本地翻页；选择一个 Skill。分类 chip 是发现 Skill 的首选入口，卡片上的 `category` 是该 Skill 的权威分类。 | 用户问“有什么 Skill”“有哪些分类”“按类别找/推荐 Skill”时，**只调用一次且不传参数**，然后结束本轮等待用户在 Catalog 中按分类或搜索选择。不要手写一份分类/Skill 清单，不要调用 `get_skill_catalog_records`，不要为翻页或换分类再次调用 `browse_skills`。目录的「我的 Skill」列出用户自己的全部 Skill（含草稿、已禁用）；点「管理」会以含 `skill_manage_requested` 的用户消息回到对话，此时不拉取运行，改用 `list_skill_versions` / `manage_skill_version` / `update_skill` 继续，影响他人的变更（设为当前版本、启用、`derivable`、子技能）先让用户明确确认，详见 ideaswork-builder 的「提交之后：属主管理」。 |
 | **工作区切换**：`browse_contexts()` + `ask_user_interact()` | 用户主动换工作区，或默认工作区不可用时另选团队/项目。 | 仅在用户明确要求换团队/项目，或服务端明确要求选择工作区时调用；初始化或仅切 mode 不弹表单。需选择时重新查询，用本次名称构造 `select`，等待提交后传对应的本次 `context_ref`；不使用缓存 ref，也不替用户猜选。 |
 | **动态表单（含素材选择）**：`ask_user_interact()` | 填写结构化字段；`built_in` + `material_picker` 字段在表单内二级展开素材库，完成搜索、筛选、翻页和选择。 | 需要素材时先确认 active Context，再把 `accept` 等参数放入素材字段，与其他输入一次收集。调用后结束本轮；用户确认/取消会以 `interaction_response` 普通用户消息回到对话，直接据其 `action` 和 `data` 继续，不调用提交/状态工具。不得猜测用户选择。 |
 | **素材库取数**：`browse_materials()` | 为表单内素材字段提供只读分页数据，**本身不渲染选择器**。 | 正常选素材时不由 Agent 调用；仅收到表单 App 的 `material_pick_request`（宿主不支持 App 内取数）后，在对话中列出候选，等用户文字确认，再将所选素材写回字段 `value`、其余字段按 `draft` 回填，重新调用 `ask_user_interact`。 |
@@ -234,9 +265,12 @@ browse_skills()  # 每次发现请求只调用一次；App 在本地搜索/分�
 - checkout 会先下载并验证主 Skill 与全部 linked archive，再统一物化；linked 的 `skill_dir` 位于主目录
   `linked/<子技能名>/`，`runtime_dir` 位于主 Skill 的 `workspace/.claude/skills/<子技能名>/`，不创建
   独立的 `.avp_run/<子技能名>/`。缺失依赖按上述恢复流程处理；明确无权访问时不绕过权限。
-- Codex Plugin 使用随包 Go 二进制提供的 `runtime checkout`，不依赖已安装的全局 CLI，
-  也不调用独立 CLI 的 OAuth `skill pull`。checkout 下载由当前 Context 的 Runtime lease endpoint 完成，
-  archive 和 bearer 凭证不需要暴露给业务 Python 子进程。
+- Codex Plugin 通过随包的 `runtime/bin/ideaswork` 启动脚本调用按需安装的 Runtime Core，不依赖已安装的
+  全局 CLI，也不调用独立 CLI 的 OAuth `skill pull`。checkout 下载由当前 Context 的 Runtime lease
+  endpoint 完成，archive 和 bearer 凭证不需要暴露给业务 Python 子进程。
+- **Windows 原生环境不能直接执行上面的 `sh` 写法**：换成 PowerShell + `runtime\bin\ideaswork.cmd`，
+  JSON 走 `@文件`，lease 经 stdin 管道传入（见 [references/WINDOWS.md](references/WINDOWS.md)）；
+  用 JS/Node 子进程启动或把 lease 放进环境变量时，checkout 会以 `command_failed` 结束且不落盘。
 - 主 Skill 的 `CLAUDE.md` / linked prompt 编排由后续 Host 物化步骤处理，不能为了省步骤改写原 Skill。
 - standalone CLI 形态可以使用 `ideaswork skill list/pull` 完成同一 Remote MCP control-plane 操作。
 - **checkout 的输出是后续所有路径的唯一权威**：`runtime_dir`（技能运行目录）和 `workspace_dir`
@@ -263,7 +297,7 @@ Remote / Local tool source 之间猜测。执行前仍要**先发现 MCP 工具*
 |---|---|
 | `blue_query_api_docs` | Remote MCP `blue_query_api_docs` |
 | `blue_exec_api` | Remote MCP `blue_exec_api` |
-| `blue_exec_batch` | Remote MCP `blue_exec_batch` |
+| 批量执行 | Remote MCP `blue_exec_api`，传 `calls` 而不是 `api_code` / `body` |
 | `run_python_script` | `sh <plugin_root>/runtime/bin/ideaswork runtime python --runtime-endpoint <endpoint> --runtime-lease-stdin ...` |
 | `sandbox_bash` | Host Bash，在当前 Skill workspace 执行 |
 | 平台 Skill 的异步等待 | 统一用 `sh <plugin_root>/runtime/bin/ideaswork runtime wait-result --runtime-endpoint <endpoint> --runtime-lease-stdin ...`。同批多任务必须使用一次 `--tasks-json` 调用。 |
@@ -308,6 +342,9 @@ CLI 输出时，才允许降级到 CLI。
 `wait_result_hint` 时使用其中的查询 API 和完成条件，并从实际创建响应中提取任务查询参数；
 未提供完整信息时先查询 API 文档和 Skill，不能把提交成功、事件订阅或唤醒提示当作最终结果。
 若没有可用查询 API，停止并说明无法在当前宿主取得异步结果。
+
+`wait_result_hint` 带 `task_id` 与 `fallback` 时（创建响应里能取到平台基础任务 ID），主查询查不到就直接用
+`fallback.query_api_code` 和 `fallback.params`，同样先查它的文档。
 
 提醒：任何异步任务，若按 Skill 原语或 `wait_result_hint` 指向的查询 API 查不到结果，可改用
 `task_status` 尝试，`task_id` 取创建响应里的真实任务 ID，完成条件看 `data.status`（可加
@@ -392,7 +429,8 @@ sh <plugin_root>/runtime/bin/ideaswork runtime wait-result \
   先确认当前 Context 和 API 文档/grant，不能把本机文件路径直接发给 `blue_exec_api`。
 - Remote MCP 模式：从当前 MCP 的 `create_runtime_lease`（或 pull 返回）取得 lease，
   使用随包 `runtime/bin/ideaswork material upload <文件> --runtime-endpoint <地址>
-  --runtime-lease-stdin --json`；lease 经 stdin 或父进程环境传入，不写入文件/日志，
+  --runtime-lease-stdin --json`；lease 只经 stdin 传入（Windows 见
+  [references/WINDOWS.md](references/WINDOWS.md)），不写入文件/日志或环境变量，
   不要求独立 CLI 登录。
 - 显式 lease 缺失/过期：通过当前 MCP 获取新的 lease；Context 改变先确认 Context。
   不自动改用 CLI 自己的账号，也不因权限拒绝切换入口。

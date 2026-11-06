@@ -26,6 +26,18 @@ CLI 内部仍连接同一 Remote MCP 服务，不使用旧 Local MCP、`local_rp
   正式制品环境由渠道固定，不支持 `--env`；未绑定源码的 `--env` 仅供开发调试。
 - `--json` 成功时保留业务 payload；失败读取 `error_code / next_action / retryable`，不要靠猜错误文本恢复。
 
+## Windows 原生入口
+
+- Windows 原生环境没有 `sh`（Git Bash / WSL 的 `sh` 不是支持路径）：用
+  `& "<plugin_root>\runtime\bin\ideaswork.cmd" ...`，独立 CLI 用 PowerShell
+  调 PATH 上的 `ideaswork`（或按 README 用原生 `ideaswork.exe` 绝对路径）。不要用 WSL / `sh`，
+  也不要在宿主的 JavaScript/Node 执行环境里用 `child_process` 启动 CLI：已知会立刻返回
+  `command_failed` 且不落盘，同一个入口换成 PowerShell 后正常。
+- lease 只走 stdin 管道（`$lease | & <入口> ... --runtime-lease-stdin`），不要用环境变量、子进程
+  `input` 通道或继承句柄；JSON 参数先写文件再用 `@文件`。
+- checkout 报 `command_failed` 且目录为空时，先按 [WINDOWS.md](WINDOWS.md) 查调用方式，再看
+  `local_io_error` 的落盘原因；不重新 `pull_skill`、不换工作区、不判定 Skill 或权限有问题。
+
 ## 发现与拉取
 
 1. 用户找线上 Skill：`ideaswork skill list --query "<用户目标>" --json --task <task>`。
@@ -35,9 +47,13 @@ CLI 内部仍连接同一 Remote MCP 服务，不使用旧 Local MCP、`local_rp
    CLI 复用当前工作区或绑定 OAuth 默认工作区，建立 `skill_runner` Context，并物化主包、全部 linked、
    受管 CLAUDE.md 和 API 清单；直接拉取并继续，不先要求选择工作区。
    默认目录 `.avp_run/task-<hash>/<name>/`；实际路径以返回值为准，不硬编码。
-3. 仅在用户明确更换工作区，或服务端明确要求选择工作区（默认项目缺失/不可访问）时，先
-   `ideaswork context list --json --task <task>`，把本次团队/项目候选展示给用户。
-   用户确认后 `ideaswork context use <本次context_ref> --mode skill_runner --task <task> --json`。
+3. **默认不切换工作区。** 仅在用户明确更换工作区，或服务端明确要求选择工作区（默认项目缺失/不可访问）时，先
+   `ideaswork context list --json --task <task>`，把本次团队/项目候选和“从 A → 到 B”展示给用户。
+   用户确认后 `ideaswork context use <本次context_ref> --mode skill_runner --confirm-switch --task <task> --json`；
+   不带 `--confirm-switch` 切换工作区会被拒绝（`workspace_switch_requires_confirmation`），**不得为让命令通过自行添加**。
+   CLI 按团队/项目身份判断是否切换，不比较 ref 字符串；服务端每次列表都会换发新 ref，旧 ref 仍可用。
+   无法解析的 ref 返回 `context_ref_not_listed`，此时重新 `context list` 取本次 ref，不要改用别的工作区。
+   找不到 Skill、权限不足都不是切换的理由，如实告诉用户即可。
    同工作区仅切 mode 可省略 ref，并加 `--reuse-session`；不为普通后续步骤反复新开平台会话。
 4. 按返回的 `workspace_dir / runtime_dir` 读取受管 CLAUDE.md 和主 SKILL.md，子技能在对应阶段才读。
    Agent 负责解释并编排 Skill；没有 `ideaswork skill run`，不要猜测这个命令。
@@ -49,8 +65,8 @@ CLI 内部仍连接同一 Remote MCP 服务，不使用旧 Local MCP、`local_rp
 | `blue_list_apis` | `ideaswork api list --json`（只列当前已授权 API） |
 | `blue_query_api_docs(code)` | `ideaswork api docs <code> --json` |
 | `blue_exec_api(code, body)` | `ideaswork api exec <code> --body @body.json --json` |
-| `blue_exec_batch(calls)` | `ideaswork api batch --calls-json @calls.json --json` |
-| `run_python_script` | `ideaswork runtime python --workspace <workspace_dir> --script <相对script_path> --args-json @args.json --json` |
+| `blue_exec_api(calls=…)`（批量） | `ideaswork api batch --calls-json @calls.json --json` |
+| `run_python_script` | `ideaswork runtime python --workspace <workspace_dir> --script <相对script_path> --args-json @args.json --json`（需本机 Python 3.10+；`python_version_unsupported` 时请用户装新版本并用 `--python-executable` 指定，不改脚本） |
 | 脚本内 `call_platform_api` | Runtime Core 父进程 bridge；不得裸跑脚本或把 OAuth/lease 传给子进程 |
 | `sandbox_bash` | Host Shell，在实际 Skill workspace 执行；不是平台 sandbox |
 | `register_async_poll` | `ideaswork runtime wait-result`；不自行 sleep/轮询、不等待平台回调 |
@@ -66,6 +82,7 @@ Batch 仅用于已查询文档、彼此独立的调用；不要为省命令把�
 
 先根据创建响应的真实任务 ID、状态查询文档和 `wait_result_hint` 组织查询条件。
 完成条件沿用 Runtime Core schema，例如 `{"field":"data.status","value":"succeeded"}`；字段以文档为准。
+hint 里带 `task_id` 和 `fallback`（如 `t2v_session_task_create`）时，主查询查不到就直接用 `fallback` 的查询 API 和参数；
 按 Skill 原语或 hint 查不到结果时，改用 `task_status`（`task_id` 取创建响应的真实任务 ID）尝试。
 
 ```bash
@@ -93,6 +110,7 @@ ideaswork runtime wait-result --resume <任务目录>/wait.json --json --task <t
   pull 原 Skill、查询文档；不重放可能有副作用的 Python/API。旧等待文件因平台会话变化可能拒绝自动续等，
   此时先核对原任务真实状态，再在正确授权 Context 中用原任务 ID 新建等待定义，不能新建生成任务。
 - `request_outcome_unknown`：请求可能已执行；先核对远端状态，不盲目重试。
+- `network_unreachable`（退出码 1，`retryable=true`）：连接都没建立（沙箱断网、域名解析失败、连接被拒、代理拒绝隧道），请求一个字节都没发出、什么也没执行；请用户放开网络后原样重试即可，不必核对远端状态。
 - `wait_state_mismatch / wait_context_mismatch`：身份、task 或平台会话不同；不在新项目自动续等。
 
 Runtime 等待不等于后台唤醒 Agent。Harness 要保持命令执行或提供自己的续接机制；不承诺自动恢复对话。
