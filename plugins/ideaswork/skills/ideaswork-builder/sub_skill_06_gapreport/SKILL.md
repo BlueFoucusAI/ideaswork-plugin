@@ -7,17 +7,13 @@
 ## 前置条件
 
 - `sub_skill_05` 完成：两种模式均已产出并校验完整 Skill。
-- 台账 `<草稿目录>/.avp_gaps.json` 已在 `sub_skill_01` 建好；它可以为空。
+- 本制品**没有问题台账命令**（`skill gaps` 是 CLI 的功能）：遗留问题直接写在交付说明里，不生成 `.avp_gaps.json`。
 
 ## 步骤
 
 ### 1. 只审视影响落地的问题
 
-先看已有记录：
-
-```bash
-ideaswork skill gaps list --draft <草稿目录>
-```
+先回看本次构建过程中已经遇到并记下的问题（`sub_skill_03` 里标注的"待平台补能力"、`sub_skill_04` 里验证不了的 API、被拒绝的审批类 API 等）。
 
 不要“回扫”寻找更多理论差异。只有下列情况才补充记录或考虑反馈：
 
@@ -38,71 +34,52 @@ ideaswork skill gaps list --draft <草稿目录>
 
 不要把 Runtime 问题错记为 `missing_api`、`missing_capability` 或 `schema_gap`，也不要把 Skill 自身问题外推成平台/Runtime 缺陷。
 
-### 3. 记录必要条目
+### 3. 把必要的问题写成"遗留问题"条目
 
-`gaps add` 默认只记录。默认在“阻塞 + 无合理绕过 + 归属明确”后才显式加 `--report`。非阻塞小问题也可在明确说明实际价值后酌情加 `--report`，但绝不是必做项。每条都要有可复现证据、影响步骤和绕过情况。
+每条只在"阻塞 + 无合理绕过 + 归属明确"后才**值得提给用户考虑反馈**；非阻塞小问题可以写下来，但绝不是必做项。每条包含：
 
-平台 Tool/API 示例：
+| 字段 | 内容 |
+|---|---|
+| 类别 | `skill_issue`（Skill 自身，已修复或仅记录）/ `missing_api`、`missing_capability`（平台 Tool 能力）/ `agent_runtime`（Agent Runtime/Framework） |
+| 标题 | 一句话：缺什么 / 坏了什么 |
+| 期望 | 希望平台或 Runtime 做到什么 |
+| 优先级 | 默认 P2；只有真实挡住主链路才用 P0/P1，避免优先级通胀 |
+| 影响步骤 | 核心 Skill 的哪一步 |
+| 证据 | 可复现的请求/返回/检索结果或 Runtime 行为；不含 token、完整响应体或用户敏感数据 |
+| 绕过 | 有就写，没有写"无" |
+| 是否阻塞 | 是 / 否 |
 
-```bash
-ideaswork skill gaps add --draft <草稿目录> --kind missing_api \
-    --title "<缺失的 Tool/API>" --expect "<需要的平台能力>" \
-    --priority P1 --domain PLATFORM_INFRA --sub-domain <二级域> \
-    --where "<核心 Skill 步骤>" --evidence "<请求/返回/检索证据>" \
-    --blocking --workaround "无" --report
-```
-
-Agent Runtime/Framework 示例：
-
-```bash
-ideaswork skill gaps add --draft <草稿目录> --kind agent_runtime \
-    --title "<Runtime/Framework 能力限制或 Bug>" --expect "<需要的执行能力>" \
-    --priority P1 --where "<核心 Skill 步骤>" \
-    --evidence "<可复现的 Runtime 行为/报错>" \
-    --blocking --workaround "无" --report
-```
-
-Skill 自身问题只修复或记录，不加 `--report`：
-
-```bash
-ideaswork skill gaps add --draft <草稿目录> --kind skill_issue \
-    --title "<已修复的 Skill 编排/Prompt 问题>" --expect "<修复后的正确行为>" \
-    --where "<步骤>" --workaround "已在 Skill 中修复"
-```
-
-`--priority` 默认 P2；只有真实挡住主链路才用 P0/P1，避免优先级通胀。
+平台 Tool 类还要写一级域（如 `PLATFORM_INFRA`）和二级域；`agent_runtime` 类**不得**套用平台 Tool 能力表单的字段。
+Skill 自身问题只修复并记录"已在 Skill 中修复"，不提报。
 
 ### 4. 生成摘要并按归属分流
 
-```bash
-ideaswork skill gaps render --draft <草稿目录>
-ideaswork skill gaps submit-plan --draft <草稿目录>
-```
+在交付说明里按三组整理：**平台 Tool/Model/API**、**Agent Runtime/Framework**、**Skill 自身 / 已绕过 / 仅记录**。不生成额外文件
+（本制品没有 `render` / `submit-plan` 命令）。
 
-`render` 生成 `<草稿目录>/SKILL_BUILD_FINDINGS.md`，分为平台 Tool/Model/API、Agent Runtime/Framework、以及 Skill 自身/已绕过/仅记录三组。
-
-- 平台能力问题使用原有平台能力表单。若有 `lark-cli`，`submit-plan` 会给出按真实平台表单字段构造的计划；没有则交付摘要和表单链接。不要为了提报安装 `lark-cli`。
-- Agent Runtime 问题使用新 Agent 能力表单。`submit-plan` 会单独给出该表单链接和条目正文；提交前先读取该表单的实际字段，**不得复用平台 Tool 能力表单的 payload 或字段**。
+- 平台能力问题：把[平台能力反馈表单](https://bluefocus.feishu.cn/share/base/form/shrcnB3SRCUsabcsTcyiS0V4O8g)链接和条目正文交给用户，由用户决定是否自己提交。
+- Agent Runtime 问题：把[Agent 能力反馈表单](https://bluefocus.feishu.cn/share/base/form/shrcnpGPjWDbCjPmyL3Qo0rRcPc)链接和条目正文交给用户；
+  **不得复用平台 Tool 能力表单的 payload 或字段**。
 - Skill 自身、已绕过或仅记录的问题不提交外部表单。
 
-提报是写操作。即使条目已经标记 `--report`，也必须先把计划逐条交给用户，获得对本次条目的明确同意才可提交。
+**不自行提交任何外部表单。** 提报是写操作：先把条目逐条交给用户，获得对本次条目的明确同意，且由用户自己提交；本制品不提供代为提交的通道。
 
 ### 5. 收尾汇报
 
 向用户交付：
 
-1. 可用 Skill 的**本地草稿路径**与静态校验结果，并说明是否仍有核心路径阻塞发布。用户没有要求过提交，就不提及提交；只有提交实际发生过，才附服务端返回的 Skill ID、版本和版本状态（默认是待审核版本，需属主在 Studio 版本历史接受；推送不返回 `studio_url`）。
-2. `SKILL_BUILD_FINDINGS.md` 路径与结论：核心目标是否可落地、是否有真正阻塞项。
-3. 若有待反馈项：逐条说明它属于平台 Tool 还是 Agent Runtime，已标记/已提交/待用户确认的状态，以及对应表单。
+1. 可用 Skill 的**本地草稿路径**与本地自检结果，并说明是否仍有核心路径阻塞发布。用户没有要求过提交，就不提及提交；只有提交实际发生过，才附服务端返回的 Skill ID、版本和版本状态（默认是待审核版本，需属主在 Studio 版本历史接受；推送不返回 `studio_url`）。
+2. 遗留问题的结论：核心目标是否可落地、是否有真正阻塞项。
+3. 若有待反馈项：逐条说明它属于平台 Tool 还是 Agent Runtime，以及对应表单链接；是否提交由用户决定。
 4. 若无待反馈项：明确说明“没有阻塞落地的问题，无需反馈”。这是有效结论。
 
 ## 注意事项
 
 - “感觉平台不支持”或“理论上有差异”不构成反馈证据；至少给出真实请求、API 检索、Runtime 行为或可复现报错。
-- 提交通道不可用（`tool_unavailable`）属于部署状态，不构成平台能力或 Runtime 反馈项，不记台账、不 `--report`。
+- 提交通道不可用（lease 载荷没有 `skill_push_endpoint`）属于部署状态，不构成平台能力或 Runtime 反馈项，不记入遗留问题、不提报。
 - 自由文本 → 结构化内容通常应先考虑薄脚本 + 通用 LLM，不因没有业务专用 API 就判为平台缺能力。
 - 不在摘要或表单中写 token、完整响应体或用户敏感数据；证据只保留必要的请求摘要、报错与步骤上下文。
 
 ## 产出
 
-`<草稿目录>/SKILL_BUILD_FINDINGS.md` + （可选）按归属生成的反馈计划/回执 + 一次以“Skill 是否实际可落地”为中心的收尾汇报。两种模式到此结束。
+交付说明里的遗留问题清单（可为空）+ 一次以“Skill 是否实际可落地”为中心的收尾汇报。两种模式到此结束。

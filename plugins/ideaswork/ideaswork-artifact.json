@@ -1,32 +1,16 @@
 {
   "contract_version": 1,
   "name": "ideaswork",
-  "version": "2026.1106.154531-dev",
+  "version": "2026.1118.135747-dev",
   "target": "plugin",
   "artifact_kind": "codex_plugin",
   "runtime": {
-    "distribution": "ideaswork-cli",
-    "version": "2026.1106.154531-dev",
-    "implementation": "native-go",
-    "platforms": [
-      "darwin-arm64",
-      "darwin-amd64",
-      "linux-arm64",
-      "linux-amd64",
-      "windows-arm64",
-      "windows-amd64"
-    ],
+    "distribution": "none",
+    "implementation": "remote-mcp-curl-bridge",
     "python_required_for": [
       "python_skill_execution"
     ],
-    "delivery": "npm",
-    "npm": {
-      "package": "@ideaswork/cli-dev",
-      "version": "2026.1106.154531-dev",
-      "channel": "dev",
-      "tag": "dev",
-      "spec": "@ideaswork/cli-dev@2026.1106.154531-dev"
-    }
+    "bridge": "skills/ideaswork-runner/scripts/bridge.py"
   },
   "components": {
     "business_skill": null,
@@ -34,7 +18,7 @@
     "capability_skill": "ideaswork-capability",
     "builder_skill": "ideaswork-builder",
     "adapter_skill": null,
-    "cli": "ideaswork-cli"
+    "cli": null
   },
   "mode": "runner",
   "entrypoint": "remote_mcp",

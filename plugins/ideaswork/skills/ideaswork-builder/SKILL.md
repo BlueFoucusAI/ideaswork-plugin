@@ -1,20 +1,15 @@
 ---
 name: ideaswork-builder
-description: 用户明确要求把已完成的 IdeasWork 能力组合或运行成果沉淀成可复用 Skill，或明确要求从需求、SOP、已有 Skill 开始构建、打样或转化 Skill，或要求把本地 Skill 草稿上传/推送到 IdeasWork、发布或更新 Skill 版本时使用。日常生成、处理或多 API 组合使用 ideaswork-capability；运行已发布 Skill 使用 ideaswork-runner，不因多次调用自动进入 Builder。
+description: 用户明确要求把已完成的 IdeasWork 能力组合或运行成果沉淀成可复用 Skill，或明确要求从需求、SOP、已有 Skill 开始构建/转化，或要求把本地 Skill 草稿上传/推送到 IdeasWork、发布或更新 Skill 版本时使用。承接真实执行证据，完成参数化、验证和本地交付；用户没有要求提交/推送时不提交也不提示。日常生成、处理或多 API 组合使用 Capability；运行已发布 Skill 使用 Runner，不因多次调用自动进入 Builder。
 ---
 
 # IdeasWork Builder
 
-> 本制品不内置原生程序：首次需要本地 Runtime Core 命令前，先读 [references/PLUGIN_RUNTIME.md](references/PLUGIN_RUNTIME.md) 检查并按指引安装；Windows 原生环境用其中的 `.cmd` 写法，不要用 `sh`。
+## 执行入口（Plugin：只有 Remote MCP）
 
-## 执行入口选择（先于后续工具指引）
-
-- 制品明确为 `cli`、用户明确使用独立 CLI，或当前是仅提供 Shell/文件读写且没有原生 IdeasWork MCP 的
-  Harness：先读 [references/CLI_BINDING.md](references/CLI_BINDING.md)，使用 CLI 绑定。
-  该绑定替代后文 Remote MCP/App/lease 的调用方式，但不改变业务 Skill、用户授权或服务端权限边界。
-- 已配置 Remote MCP 的制品/任务：沿用下文 Remote MCP 主链路。连接缺失时按插件连接指引恢复，
-  不因工具暂未注入自动切换 CLI 身份，不把 CLI 当作权限或审批失败的绕过通道。
-
+本制品没有 `ideaswork` 命令、npm 或独立 CLI，不要寻找或安装它们。平台能力、Catalog、Context、表单、图谱预览都走 Remote MCP；
+本地只有三样东西：Host Bash、`scripts/pack_skill.py`（打包草稿）和 `curl`（上传，lease 走 stdin）。Python 平台调用验证用
+Runner 的 `scripts/bridge.py`。连接缺失时按插件连接指引恢复，不因工具暂未注入而换身份，不用裸 HTTP 冒充 MCP。
 
 只在用户明确要求构建、转化、沉淀或上传已有 Skill 草稿时进入；本地创作不要求 Builder 角色或 `skill.write`。
 日常完成任务用 `ideaswork-capability`，运行线上 Skill 用 `ideaswork-runner`。三个指引可以连续衔接，
@@ -22,12 +17,11 @@ description: 用户明确要求把已完成的 IdeasWork 能力组合或运行�
 
 ## 上传已有草稿（只交付，不重新构建）
 
-用户说“把这个 Skill 传到/推到 IdeasWork”时属于本指引入口，但**不代表要重做技能**：用
-[references/CLI_BINDING.md](references/CLI_BINDING.md) 的 `ideaswork skill validate` → `ideaswork skill push`，
-不要裸调实现、不要自造上传请求。草稿必须含 `api.json`：`{"<api_code>": "一句用途"}`；不调用平台 API 时写
-`{"__desc": "本技能不依赖平台 API"}`（空对象 `{}` 和旧数组都会被拒）。只缺这一个声明就补文件，
-不重写 SKILL.md、不为凑格式臆造 api_code；要核对 api_code 或补阶段文档时才读 `sub_skill_05_generate`。
-`--set-current` / `--visibility` 仍须用户明确要求。
+用户说“把这个 Skill 传到/推到 IdeasWork”时属于本指引入口，但**不代表要重做技能**：先本地自检草稿（见下），再按
+`sub_skill_05_generate` 的「提交到团队」用 `pack_skill.py` 打包、curl 上传。不要自造上传请求。草稿必须含 `api.json`：
+`{"<api_code>": "一句用途"}`；不调用平台 API 时写 `{"__desc": "本技能不依赖平台 API"}`（空对象 `{}` 和旧数组都会被拒）。
+只缺这一个声明就补文件，不重写 SKILL.md、不为凑格式臆造 api_code；要核对 api_code 或补阶段文档时才读 `sub_skill_05_generate`。
+`set_current` / `visibility` 仍须用户明确要求。
 
 ## 两个构建入口（先判断，再选择模式）
 
@@ -37,7 +31,7 @@ description: 用户明确要求把已完成的 IdeasWork 能力组合或运行�
 - **直接构建（专业路径）**：用户明确提出构建目标或提供具体 Skill，沿用下方转化/打样阶段。
   需要发现/验证能力时复用现有平台入口，不要求用户反复切换角色。
 
-这两个入口不新增 CLI 模式或服务端 mode。完成入口判断后，仍按已有两种构建模式和阶段推进。
+这两个入口不新增服务端 mode。完成入口判断后，仍按已有两种构建模式和阶段推进。
 
 ## 先选择模式
 
@@ -56,15 +50,13 @@ description: 用户明确要求把已完成的 IdeasWork 能力组合或运行�
 
 1. 每进入一个阶段时才读取对应 `sub_skill_XX/SKILL.md`，禁止预读全部阶段。
 2. 先完成 `sub_skill_01_preflight` 的模式与上下文检查；复用已确认信息。纯本地编写/校验不以远端登录、Builder Context 或写入权限为前提，远端动作再检查连接及授权。
-3. 先查 API 文档，再执行 API。验证调用只限廉价、可逆且已获授权的；渲染、成片导出、批量生成（一次提交多项任务）、
-   发布和删除（含覆盖已有内容）必须先取得用户明确同意。
+3. 先查 API 文档，再执行 API；昂贵、批量、发布、删除等操作必须先取得用户确认。
 4. 薄脚本只保留机械转换，业务编排写在 Skill 指令中。平台脚本中的 `call_platform_api(api_code, body)` 迁移前后保持不变。
 5. `api.json` 统一为 dict：键为真实查询文档并验证过的 `api_code`，值为一句话用途说明；`__` 前缀键为注释/分组说明，不计入白名单。它是 DB `api_codes` 的唯一文件来源，不另建清单；未知能力先作为待确认或阻塞证据，不臆造 API。
 6. 不显示 token，不把身份配置、草稿缓存或本地产物提交入库。
 7. 同一问题失败三次后停止重试，保留证据并说明阻塞点。
 8. 默认不切换工作区：只在用户明确要求、或当前工作区确实无法继续时才换，换之前把“从 A → 到 B”告诉用户并得到同意，
-   不静默切换、不因缺 Skill/API/权限而自行换项目。CLI 的 `context use <ref>` / `team use` / `project use` 对不同工作区需要
-   用户同意后才加的 `--confirm-switch`，Agent 不得自行添加。
+   不静默切换、不因缺 Skill/API/权限而自行换项目。`switch_context(context_ref=…)` 服务端目前不强制确认，所以更要自觉先问用户。
 
 ### 问题分类与反馈原则
 
@@ -76,7 +68,9 @@ description: 用户明确要求把已完成的 IdeasWork 能力组合或运行�
 
 只有直接阻塞构建或核心流程、令 Skill 无法达到主要目标、没有合理绕过方案，或有明确基础能力缺失时，才优先记录并考虑反馈。轻微体验差异、非核心问题、能通过 Prompt/Skill 设计绕过的问题、只存在理论影响的问题，不必为了“发现差异”而提报。小问题可以提报，但不是必需。
 
-使用 `ideaswork skill gaps add` 时默认仅记录；只有完成上述判断后才显式加 `--report`。`--kind agent_runtime` 专用于 Agent Runtime/Framework 问题，绝不发送到平台 Tool 能力表单。
+本制品**没有问题台账命令**（`skill gaps` 是 CLI 的功能）。需要记录时，在交付说明里写一段"遗留问题"：每条含 类别（Skill 自身 / 平台 Tool 能力 / Agent Runtime）、
+影响步骤、可复现证据、绕过情况。是否反馈完全由用户决定：只有"阻塞 + 无合理绕过 + 归属明确"的才把对应反馈表单链接交给用户，由用户自己提交；
+不自行提交外部表单。`agent_runtime` 类问题绝不使用平台 Tool 能力表单。
 提交通道不可用（`tool_unavailable`）属于部署状态，不是上述任何一类，不记入台账、不提报。
 
 ## 新 Runtime 架构映射
@@ -86,58 +80,56 @@ Builder 本地验证平台原生 Skill 时使用固定映射：
 | 平台原语 | Builder 执行入口 |
 |---|---|
 | `blue_list_apis` / `blue_query_api_docs` / `blue_exec_api` | Remote MCP，受当前 Context grant 限制 |
-| `run_python_script` | `ideaswork runtime python` |
+| `run_python_script` | `python3 <runner_skill_dir>/scripts/bridge.py`（见 Runner「运行 Python 脚本」；lease 走 stdin） |
 | `sandbox_bash` | Host Bash |
-| `register_async_poll` | `ideaswork runtime wait-result` |
+| `register_async_poll` | Remote MCP `blue_exec_api` 反复查状态 API（见 sub_skill_04） |
 | `ask_user_interact`（含素材字段） | Remote MCP App；需要审批的 API 在 Remote MCP 侧拒绝执行 |
-| 心影图谱展示（`skill_sop.json`） | Plugin：Remote MCP App `show_skill_sop`（默认/高级两种视图，可对节点留意见）；CLI：`ideaswork skill sop`，只输出 Mermaid，无交互与评论 |
+| 心影图谱展示（`skill_sop.json`） | Remote MCP App `show_skill_sop`（默认/高级两种视图，可对节点留意见） |
 
-不得调用旧 `avp_local` MCP 或 Agent Service `local_rpc` 作为新 Builder 主链路。Plugin 形态的 Runtime Core 通过 Remote MCP `create_runtime_lease` 调用远端能力：每个实际调用 Context 首次需要本地执行时取得 lease，并在有效期内复用；独立 CLI 是另一条终端入口，Plugin 不读取 CLI OAuth session。
+不得调用旧 `avp_local` MCP 或 Agent Service `local_rpc` 作为新 Builder 主链路。只有需要经 `bridge.py` 跑脚本或上传文件时才取 runtime lease
+（`create_runtime_lease`），并在有效期内复用；lease 只经 stdin 传入，不写进命令行、环境变量或文件。
 
 ## 依赖边界
 
-- 身份、平台执行原语、异步轮询和 harness Adapter 由仓库顶层 `ideaswork-cli` 提供。
+- 平台执行原语由 Remote MCP 提供；本地 Python 验证与上传分别用 `bridge.py` 与 `curl`。Plugin 不依赖 CLI、npm 或 Go。
 - Builder 通过 Remote MCP 发现平台能力；构建的默认交付物是**本地草稿目录**。提交只在用户明确要求时才处理，见下文「提交（仅在被要求时）」。
-- Builder 不实现 Adapter；Plugin/CLI 默认均包含 Runner、Capability、Builder，旧打包 mode 不设角色门槛。
+- Builder 不实现 Adapter；Plugin 默认包含 Runner、Capability、Builder，旧打包 mode 不设角色门槛。
 - 制品转换由仓库顶层 `builders/` 负责；本 Skill 只生成目标无关的 Skill 源文件。
 
-开发仓库 / standalone CLI 远端验证时可以安装并登录 CLI；Plugin 模式不读取 CLI OAuth。
 已有 Context 足够处理当前只读发现时复用；只有实际远端动作要求对应 mode 时才按契约切换，随后重新核对工作区、grant 和 lease。
 模式切换若在旧部署产生新平台会话，保留原任务/产物关联，不能假定已合并；不为本地创作强制新建 builder Context。
 Python 平台验证取得并复用实际调用 Context 的 runtime lease，不能拿旧 lease 继承权限。
 
 ## 提交（仅在被要求时）
 
-默认终点是通过 `ideaswork skill validate` 的本地草稿目录。**用户没有要求提交/上传/推送时，不提交，也不在收尾或任何
-位置提及、推荐或询问提交**；交付只说明草稿路径与校验结果。
+默认终点是通过本地自检（见 `sub_skill_05_generate`「3. 本地自检」）的草稿目录。**用户没有要求提交/上传/推送时，不提交，也不在收尾或任何
+位置提及、推荐或询问提交**；交付只说明草稿路径与自检结果。
 
 用户明确要求提交时，才按保守策略处理，不预设通道是否可用：
 
-- Skill 推送**不再是 MCP 工具**（`push_skill` 已移除），而是用 Runtime lease 鉴权的 HTTP 上传，与 `material upload` 同一套
-  传输。先探测再授权：Plugin 调 `create_runtime_lease`（或沿用 `pull_skill` 返回的 lease），载荷里有 `skill_push_endpoint`
-  才说明该账号/部署开放推送，不再用工具清单判断；CLI 直接运行 `ideaswork skill push <skill_dir> --name <name>`，它先本地
-  打包校验，再取 lease 检查该字段；缺失返回 `error_code=tool_unavailable / next_action=keep_local_draft`。
+- Skill 推送**不是 MCP 工具**，而是用 Runtime lease 鉴权的 HTTP 上传（`/mcp/runtime/lease/skills/push`）。先探测再授权：
+  `create_runtime_lease`（或沿用 `pull_skill` 返回的 lease）的载荷里有 `skill_push_endpoint`，才说明该账号/部署开放推送；
+  缺失就停止，保留本地草稿并如实说明（等同 `tool_unavailable / keep_local_draft`）。
 - 通道不存在、scope 不足或业务权限拒绝时：保留本地草稿，如实说明这次没能提交及原因，不换身份、入口或裸 HTTP 绕过，
-  不重试。提交通道的可用性属于部署状态，不属于 Skill 构建问题：不记入 gaps、不加 `--report`。
+  不重试。提交通道的可用性属于部署状态，不属于 Skill 构建问题：不记入遗留问题、不提报。
 - 通道存在时，提交前检查本次用户授权、目标团队（恒为 lease 的 Context）、实际 scope 和业务写入权限（`skill.write` 不等于业务权限）。
   推送结果是**待审核版本（pending）**，不是 draft：当前运行内容不变，属主在 Studio 版本历史里接受后才生效；不 publish、
-  不覆盖已发布版本、不保证返回 Studio 链接。CLI 按需使用已有 Context（没有时才切到 `builder`）并排除本地台账；
-  脚本无需改写，旧草稿遗留的桥接块会在上传副本里剥离。scope 不足按服务端提示补授权；业务权限不足请用户申请，不靠重复登录。
-  正式发布是独立高权限动作。
+  不覆盖已发布版本、不保证返回 Studio 链接。脚本无需改写；旧草稿遗留的桥接块**必须先手工删除**（`pack_skill.py` 会拒绝打包）。
+  scope 不足按服务端提示补授权；业务权限不足请用户申请，不靠重复登录。正式发布是独立高权限动作。
 - `--set-current`（立即设为当前版本）和 `--visibility team`（新 Skill 分享给团队）会改变他人实际运行或可见的内容，服务端无法确认勾选来自用户本人：
-  **Agent 不得主动添加**，默认都是 false。需要时先问用户（Plugin 用 `ask_user_interact`，CLI 在对话里问），得到明确同意才加；
-  `--visibility` 只用于新建 Skill，缺省 private（仅自己）；更新已有 Skill（`--skill-id`）时永远不加 `--visibility`，改分享范围用 `update_skill`。`global` 不能通过插件或 CLI 设置。
+  **Agent 不得主动添加**，默认都是 false。需要时先用 `ask_user_interact` 问用户，得到明确同意才加；
+  `--visibility` 只用于新建 Skill，缺省 private（仅自己）；更新已有 Skill（`--skill-id`）时永远不加 `--visibility`，改分享范围用 `update_skill`。`global` 不能通过插件设置。
   具体命令、结果解读与提交后的属主管理见 `sub_skill_05_generate/SKILL.md` §4。
 
 ## 阶段索引
 
 | 阶段 | 文件 | 职责 |
 |---|---|---|
-| 01 | `sub_skill_01_preflight/SKILL.md` | 选模式、身份、连通性、约束 |
+| 01 | `sub_skill_01_preflight/SKILL.md` | 选模式、工作区、连通性、约束 |
 | 02 | `sub_skill_02_discover/SKILL.md` | 盘点业务能力并发现平台 API |
 | 03 | `sub_skill_03_design/SKILL.md` | 设计可用 Skill 的结构与编排 |
 | 04 | `sub_skill_04_prototype/SKILL.md` | 用低成本真实调用验证关键链路 |
-| 05 | `sub_skill_05_generate/SKILL.md` | 生成可用的平台格式 Skill 并静态校验 |
+| 05 | `sub_skill_05_generate/SKILL.md` | 生成可用的平台格式 Skill 并本地自检 |
 | 06 | `sub_skill_06_gapreport/SKILL.md` | 收口必要问题、按归属反馈或说明无需反馈 |
 
 两种模式都顺序完成全部阶段。06 的价值是确认是否有真正阻塞落地的问题及其准确归属；没有问题或只有已绕过的小问题时，明确记录“无需反馈”即可，不为生成报告而寻找差异。

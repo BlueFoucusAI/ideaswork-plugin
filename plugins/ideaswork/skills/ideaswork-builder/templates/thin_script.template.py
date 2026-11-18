@@ -9,7 +9,7 @@
     --model <model_name> --input <in.json> --output <out.json>
 
 `call_platform_api(api_code, body)` 是运行时注入的内置函数，不要 import，也不要自己写桥接/兜底代码。
-本地验证用 `ideaswork runtime python --workspace <草稿目录> --script tools/<脚本名>.py --args-json @args.json`，
+本地验证用 Runner 的 `scripts/bridge.py --workspace <草稿目录> --script tools/<脚本名>.py --args-json @args.json`（lease 走 stdin），
 它注入的函数与平台同名同签名；不要直接 `python tools/<脚本名>.py`（裸跑没有注入，会 NameError）。
 """
 import argparse

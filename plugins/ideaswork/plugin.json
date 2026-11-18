@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "ideaswork",
-  "version": "2026.1106.154531-dev",
+  "version": "2026.1118.135747-dev",
   "description": "Use platform capabilities, run published Skills, and build reusable IdeasWork Skills locally in Codex.",
   "author": {
     "name": "BlueAI",
@@ -13,7 +13,7 @@
       "interface": {
         "displayName": "IdeasWork",
         "shortDescription": "Use APIs, run and build Skills",
-        "longDescription": "Connects Codex to IdeasWork so you can use platform capabilities, discover and run published Skills, and turn successful workflows into reusable Skills with Remote MCP platform tools, standard OAuth, and the local Runtime Core installed from the matching npm package. The plugin registers one Remote MCP tool source; it does not launch a local platform MCP server.",
+        "longDescription": "Connects Codex to IdeasWork so you can use platform capabilities, discover and run published Skills, and turn successful workflows into reusable Skills with Remote MCP platform tools and standard OAuth. Local steps need only curl and Python 3.10+: the plugin registers one Remote MCP tool source, installs nothing and launches no local platform MCP server.",
         "developerName": "BlueAI",
         "category": "Creativity",
         "capabilities": [

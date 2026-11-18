@@ -31,13 +31,8 @@
 
 > 只有确认不是 Skill 的 Prompt/编排可解决、不是薄脚本+通用 LLM 可解决，且缺失会阻塞核心目标并无合理绕过时，才将它归为**平台 Tool/Model/API 能力问题**，在草稿中标注「待平台补能力」并记录：
 
-```bash
-ideaswork skill gaps add --draft <草稿目录> --kind missing_capability \
-    --title "<一句话：平台缺什么能力>" --expect "<希望平台能做到什么>" \
-    --priority P1 --domain <一级域> --sub-domain <二级域> --blocking \
-    --where "<本 skill 哪一步>" --workaround "无" \
-    --evidence "<已授权能力、文档和真实调用为何无法覆盖>" --report
-```
+在草稿里标注后，把它作为"遗留问题"记下（到 `sub_skill_06` 汇总）：类别 `missing_capability`、一句话说明缺什么、希望平台做到什么、
+优先级（默认 P2，真实挡住主链路才用 P0/P1）、所属域、是否阻塞、本 Skill 的哪一步、绕过方案（没有写"无"）、以及"已授权能力、文档和真实调用为何无法覆盖"的证据。
 
 **判定门槛**：只有在确认不是权限范围限制、已授权通用能力和薄脚本也无法解决、且核心目标受阻时，才把问题归为 `missing_capability`。
 
@@ -54,14 +49,14 @@ ideaswork skill gaps add --draft <草稿目录> --kind missing_capability \
 - 有 `poll_query_api` 的：用 `register_async_poll` 注册，`delay_minutes/poll_interval/max_polls` 按任务量级估（见 `knowledge/CONSTRAINTS.md` 默认区间表），并给出**完成条件** `completion_config`（注册表没配 `success_condition` 时必须显式给）。
 - **唤醒后那步必须自包含**：被唤醒时 Agent 只有 poll 结果 + 文件 + SKILL.md，**没有**轮次前的内存变量 → 异步点之后还要用的状态，结束轮次前**落文件**或能从 poll 结果重导出。
 - **别写成同步直线**：SKILL.md 显式写「提交 → 注册 → 结束轮次 →【唤醒】→ 读结果 → 继续」。
-- 打样阶段用 Runtime Core `wait_result` 验证有授权的 poll API 和完成条件，详见 sub_skill_04。
+- 打样阶段用 `blue_exec_api` 反复查询有授权的 poll API，按完成条件验证，详见 sub_skill_04。
 
 ## 注意事项
 
 - 不要把多个 API 的编排塞进一个脚本——编排是 Agent（SKILL.md）的职责。
 - 不要让脚本之间互相 import 业务数据；数据由 Agent 在上下文中传递。
 - 源 Skill 的写法被平台约束逼着改时（`threading`/`multiprocessing` 并发、`shutil` 批量文件、环境变量传配置、脚本内 `while`+`sleep` 轮询…），优先按规范改写。改写后可用就不必记差异；确实影响交接时可用 `--kind constraint` 仅记录，但不提报。
-- 若 Skill 的 API 与编排合理，却受限于 Agent 的执行能力（例如 Runtime 不支持需要的 Sub Agent、上下文无法传递、异步回调/恢复丢失），不要写成 `missing_capability`。确认它阻塞核心目标且无合理绕过后，用 `--kind agent_runtime --blocking --workaround "无" --report`，由 sub_skill_06 路由到 Agent 能力反馈表单。
+- 若 Skill 的 API 与编排合理，却受限于 Agent 的执行能力（例如 Runtime 不支持需要的 Sub Agent、上下文无法传递、异步回调/恢复丢失），不要写成 `missing_capability`。确认它阻塞核心目标且无合理绕过后，记为类别 `agent_runtime`（阻塞、绕过写"无"），由 sub_skill_06 路由到 Agent 能力反馈表单。
 
 ## 产出
 

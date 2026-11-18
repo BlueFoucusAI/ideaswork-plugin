@@ -14,19 +14,9 @@
 3. 在当前 `skill_runner` Context 调用 `pull_skill(skill_id=<缺失技能id>)`。每个已确认的缺失
    技能先尝试一次，不为补拉切换团队、扩大权限或新建会话；不要自动修改平台关联配置。
    返回的递归 linked checkout 也要一并消费，不再逐个重复 pull。
-4. 补拉成功后，将子技能及它返回的依赖物化到原主 Skill 的 workspace，不创建独立运行目录：
-
-   ```text
-   ideaswork runtime checkout --workspace <原workspace根目录>
-       --skill-name <子技能名> --checkout-id <子checkout_id>
-       --primary-skill-name <原主Skill名>
-       --runtime-endpoint <endpoint> --runtime-lease-stdin
-   ```
-
-   对补拉响应里的递归 linked checkout 使用相同的 `--primary-skill-name`。这里的
-   `--workspace` 是初次 checkout 使用的根目录，不是其输出的 `workspace_dir`。
-   复用当前有效 runtime lease；Host 更新主 Skill 的依赖记录及受管 prompt，保留主 Skill
-   文件、既有产物和 Context。若初次 pull 未完成，先恢复主 checkout，再继续原阶段。
+4. 补拉成功后，对返回的子技能及其递归 `linked[]` 的每一项，按 Runner 的「物化 checkout」做 下载 → 校验 → 解压，
+   **目标仍是原主 Skill 的** `<cwd>/.avp_run/<原主Skill名>/workspace/.claude/skills/<子技能名>/`，不创建独立运行目录。
+   复用当前有效 runtime lease；保留主 Skill 文件、既有产物和 Context。若初次 pull 未完成，先恢复主 checkout，再继续原阶段。
 5. 只有补拉、下载或身份核对仍失败时，才停止受影响阶段并报告具体原因（找不到、名称歧义、
    无权访问、未发布/未启用、归档不可用或网络错误等）及已尝试的操作。不要无限重试，
    不把所有失败都归因于部署异常，也不在未尝试补拉前擅自用内置脚本替代必需依赖。

@@ -19,7 +19,7 @@
 └── tools/*.py                  # 仅在确有计算或 prompt 工程时使用
 ```
 
-用 `templates/SKILL.skeleton.md`、`templates/api.skeleton.json`、`templates/skill_sop.skeleton.json` 和 `templates/thin_script.template.py` 作为结构参考。Agent 负责业务编排；脚本只做必要的计算或单次平台调用。不要把 CLI、`avp_local` 包、Adapter、token、缓存或问题台账复制进草稿，也不要在脚本里写桥接/兜底代码。
+用 `templates/SKILL.skeleton.md`、`templates/api.skeleton.json`、`templates/skill_sop.skeleton.json` 和 `templates/thin_script.template.py` 作为结构参考。Agent 负责业务编排；脚本只做必要的计算或单次平台调用。不要把 `avp_local` 包、Adapter、token、lease、缓存或遗留问题清单复制进草稿，也不要在脚本里写桥接/兜底代码。
 
 `api.json` **统一用 dict，不生成字符串数组**。每个已查文档并验证过的 code 写一句实际用途；`__` 前缀键（如 `__desc_01`）用于分组/注释，不计入白名单。转化旧数组时逐项补用途，不把注释当成 API：
 
@@ -37,70 +37,91 @@
 ### 2. 脚本本地与平台是同一份代码
 
 薄脚本**直接调用** `call_platform_api(api_code, body)`：它是运行时注入的内置函数，不 import、不加桥接块、不需要迁移改写。
-本地用 `ideaswork runtime python` 验证时，Runtime Core 注入的同名函数与平台行为一致，所以验证过的脚本可以原样上传。
+本地用 Runner 的 `scripts/bridge.py` 验证时，注入的同名函数与平台行为一致，所以验证过的脚本可以原样上传。
 不要直接 `python tools/x.py`（裸跑没有注入，会 `NameError`）。
 
-- **本地通过不等于平台一定通过**：平台另有静态安全审查，本地不执行（`skill validate` 已覆盖推送闸门的内容校验，包括 `skill_sop.json` 的结构与引用）。以 `ideaswork skill validate` 的禁用项检查
-  和 `knowledge/CONSTRAINTS.md` 为准，不要用 `os.environ`、第三方包、网络服务等。
-- 旧草稿里的 `# === avp_local 打样桥接` 块已不需要，删除即可；留着不会出错，`skill validate` 仍接受它，
-  `skill push` 会在**上传副本**里剥离（残缺、重复或顺序错误的标记会被拒绝打包，需修复或删除）。
+- **本地通过不等于平台一定通过**：平台另有静态安全审查，本地不执行。以 `knowledge/CONSTRAINTS.md` 的禁用项为准，
+  不要用 `os.environ`、第三方包、网络服务等。
+- 旧草稿里的 `# === avp_local 打样桥接` 块已不需要，**必须手工删除**（连同 `# === 打样桥接结束 ===` 一行）：
+  `pack_skill.py` 遇到它会拒绝打包，不会替你改代码；只删这个标记块，保留业务代码和 `call_platform_api(...)` 调用行。
 
-### 3. 本地校验
+### 3. 本地自检
 
-```bash
-ideaswork skill validate <草稿目录>
-```
+本制品**没有 `skill validate` 命令**。服务端 push 自带同一套确定性闸门，所以本地自检只是"提前发现服务端会拒绝的问题"，**不能替代它，
+也不能证明通过**。逐项核对（失败就修，不是"建议"）：
 
-修复全部 FAIL。核对 `api.json` 是用途说明 dict，`__` 前缀键不计入 API，业务 code 都已查过文档、核心路径没有未授权或待验证的 API；对关键调用保留 sub_skill_04 的真实请求示例。静态校验不会证明平台 API 实际可调用。`ideaswork skill validate` 会校验 `skill_sop.json` 的结构（失败即 FAIL，等同 `skill push` 会被服务端拒绝），但不检查对齐（子技能、脚本、表单、API 是否已实现）；图谱的预览与对齐检查按下面方式进行。
+1. `SKILL.md` 存在、非空、UTF-8，且有 YAML frontmatter 含 `name` 与 `description`。
+2. `api.json` 存在、UTF-8、合法 JSON，是**对象**（键为 `api_code`，值为非空一句话用途）；`__` 前缀键是说明/分组，不计入白名单；
+   不能是空对象 `{}` 或旧数组；不依赖平台 API 时写 `{"__desc": "本技能不依赖平台 API"}`；删掉 `__comment_*` 模板说明键。
+3. 业务 `api_code` 都已 `blue_query_api_docs` 查过；核心路径没有未授权或待验证的 API；对关键调用保留 sub_skill_04 的真实请求示例。
+4. `sub_skill_NN_xxx/` 目录命名以 `sub_skill_数字_` 开头，且每个都有自己的 `SKILL.md`。
+5. 若有 `tools/*.py`：只做纯计算（见 CONSTRAINTS），不开线程、不用 `os.environ` 传配置、不在脚本里 `while`+`sleep` 轮询；已删除旧桥接块。
+6. 若有 `skill_sop.json`：用下面的 `show_skill_sop` 做结构与对齐检查（本制品没有本地 Mermaid 命令）。
 
-**图谱预览与校验**（生成了 `skill_sop.json` 就做；先给用户看图谱，再交付草稿）：
+静态自检不会证明平台 API 实际可调用，也不等于服务端闸门通过：最终以 push 的返回为准（`validation_failed` 会逐条列出问题）。
 
-- **Plugin**：调用 Remote MCP `show_skill_sop`。`sop_json` 传 `skill_sop.json` 原文（不改写），`skill_name` 传 Skill 名，`files` 传草稿目录内的相对文件清单、`api_codes` 传 `api.json` 的业务 code（不含 `__` 前缀键），这样服务端才能检查子技能、脚本、表单和 API 是否已实现；不传 `files` 只做结构校验。结构错误按返回的 `path` 修复后重试；对齐警告逐项补齐，或向用户说明为何暂缺。图谱在宿主里渲染为默认 / 高级两种视图，用户在图谱上点选阶段、动作或连线留下的意见会作为新消息发回对话，按意见修改后再次调用。调用后停止本轮，等用户反馈。
-- **独立 CLI**：`ideaswork skill sop <草稿目录>` 在本地输出 Mermaid 概览（Step 级），无交互、无评论、不联网，也不校验结构（结构用 `skill validate`）。把 Mermaid 源码或摘要展示给用户即可。
+**图谱预览与校验**（生成了 `skill_sop.json` 就做；先给用户看图谱，再交付草稿）：调用 Remote MCP `show_skill_sop`。`sop_json` 传
+`skill_sop.json` 原文（不改写），`skill_name` 传 Skill 名，`files` 传草稿目录内的相对文件清单、`api_codes` 传 `api.json` 的业务 code
+（不含 `__` 前缀键），这样服务端才能检查子技能、脚本、表单和 API 是否已实现；不传 `files` 只做结构校验。结构错误按返回的 `path`
+修复后重试；对齐警告逐项补齐，或向用户说明为何暂缺。图谱在宿主里渲染为默认 / 高级两种视图，用户在图谱上点选阶段、动作或连线留下的意见会
+作为新消息发回对话，按意见修改后再次调用。调用后停止本轮，等用户反馈。
 
 ### 4. 提交到团队（仅在用户明确要求时；不是本地交付前提）
 
-先交付草稿路径、名称、说明和静态校验结果，到此本地交付已完整。**用户没有要求上传/提交/推送时，跳过本节，
+先交付草稿路径、名称、说明和本地自检结果，到此本地交付已完整。**用户没有要求上传/提交/推送时，跳过本节，
 也不提及、推荐或询问提交。** 用户请求“发布”也不能让 push 自动变为正式发布。
 
 用户明确要求后，**先探测，再授权**：确认提交通道真实存在，再向用户展示目标团队和提交范围并取得本次上传授权。
-Skill 推送**不再是 MCP 工具**：它是用 Runtime lease 鉴权的 HTTP 上传（`/mcp/runtime/lease/skills/push`，zip ≤ 20 MiB），
-和 `material upload` 同一套传输；目标团队恒为 lease 的 Context，调用方不能指定。zip 由 `skill push` 自己打包
-（只含 Skill 源文件；排除 `.avp_gaps.json`、`SKILL_BUILD_FINDINGS.md`、`__skill_meta.json`、缓存和构建台账；
-旧桥接块在上传副本里剥离，残缺/重复/顺序错误的标记先修复；拒绝符号链接与越界路径），Agent 不手工构造 archive。
+Skill 推送是用 Runtime lease 鉴权的 HTTP 上传（`skill_push_endpoint`，zip ≤ 20 MiB）；目标团队恒为 lease 的 Context，调用方不能指定。
 
-- **Plugin 主链路**：保持 Plugin 的 OAuth 身份，不默认改用独立 CLI。先 `get_current_context` 确认是有团队的 Context
-  （已有 active context 就沿用，不为推送强改 mode；没有才 `switch_context`），再调 `create_runtime_lease`。
-  载荷里没有 `skill_push_endpoint` 就停止本节，保留本地交付并说明限制，不臆造工具、不借 CLI 身份绕过。有则：
+1. `get_current_context` 确认是有团队的 Context（已有 active context 就沿用，不为推送强改 mode；没有才 `switch_context`），
+   再调 `create_runtime_lease`（或沿用 `pull_skill` 返回的 lease）。载荷里**没有 `skill_push_endpoint`** 就停止本节，
+   保留本地交付并说明限制，不臆造工具、不借其他身份绕过。
+2. **打包**（不含任何凭据；失败不会留下半成品 zip）：
 
-```bash
-sh <plugin_root>/runtime/bin/ideaswork skill push <草稿目录> --name <skill-name> \
-  --runtime-endpoint <runtime_endpoint> --runtime-lease-stdin --json
-```
+   ```sh
+   python3 <builder_skill_dir>/scripts/pack_skill.py "<草稿目录>" "<草稿目录外的路径>/skill.zip"
+   ```
 
-  `runtime_lease` 只经 stdin 传入（与 Runner 的 `material upload` 相同），不写入文件、日志或命令行。
-- **独立 CLI 入口**：仅当前任务明确使用并授权 CLI 时，沿用它的 OAuth 和同一个 `--task`。`skill push` 自己先本地打包校验，
-  再取 lease 并检查 `skill_push_endpoint`，缺失时在改动任何 Context 之前返回 `tool_unavailable / keep_local_draft`：
+   `<builder_skill_dir>` 是本 Builder `SKILL.md` 所在目录。输出 JSON 的 `success=false` 时按 `error` 修草稿再打包：它拒绝符号链接、
+   旧桥接块、非 UTF-8 的 `.py`、超过 2000 个文件 / 100 MiB / 压缩后 20 MiB；并自动排除 `.avp_gaps.json`、`SKILL_BUILD_FINDINGS.md`、
+   `__skill_meta.json`、缓存和 `.git`。**Agent 不手工构造 archive。** zip 不要放进草稿目录。
+3. **上传**。lease 只经 stdin（heredoc）传给 curl，不写进命令行、环境变量、文件或日志。**不要加 `-f`**：`-f` 会吞掉响应体，
+   而下面的错误处理要靠响应体里的 `error.code`；改用 `-w` 取状态码：
 
-```bash
-ideaswork skill push <草稿目录> --name <skill-name> --category <category> --description "<说明>" --json --task <task>
-```
+   ```sh
+   curl -sS -X POST -H @- --max-time 600 -w '\nHTTP_STATUS:%{http_code}\n' \
+     -F 'body={"name":"<skill-name>"}' \
+     -F 'file=@<zip 路径>;type=application/zip' \
+     "<skill_push_endpoint>" <<'EOF'
+   Authorization: Bearer <runtime_lease>
+   EOF
+   ```
 
-  沿用当前已确认的团队和已有 Context（没有 active context 时才切到 `builder`）；需要换团队时才先 `context list --json --task <task>`
-  把“从 A → 到 B”和候选告诉用户并得到同意，再 `context use <本次确认的context_ref> --mode builder --confirm-switch --json --task <task>`（不要因推送失败而自行换团队）。
+   `body` 是 JSON 对象，只允许这些键：`name`、`skill_id`（正整数）、`category`、`description`、`version`、`changelog`、`visibility`
+   （均为字符串，`skill_id` 除外）、`set_current`（布尔）；**不能有团队字段，也不能有 `file`**，其他键会被拒绝。至多 64 KiB。
+   `-F` 里的 `@`、`<` 出现在 JSON 值中是安全的（已验证），但整个 `body=` 值必须是单引号包住的一个 JSON 对象。
+4. **判读结果——先看 curl 退出码，再看 HTTP 状态与响应体**（这是区分"没发出"和"结果未知"的唯一依据）：
 
-两种入口的其余选项相同：`--skill-id <id>` 给自己名下的已有 Skill 加新版本（此时 `--name` 可省，仅属主、限同一团队，不靠重名覆盖）；
-`--category`（缺省由服务端定为 general）、`--description`、`--version`（semver；缺省为下一个补丁号，新建为 1.0.0）、`--changelog`。
+   | curl 退出码 | 含义 | 怎么处理 |
+   |---|---|---|
+   | **6**（无法解析主机）、**7**（无法连接） | 连接都没建立，请求**一个字节都没发出**，草稿与线上版本不变 | 即 `push_network_unreachable`：不要查版本历史，不要换版本号；多半是没有网络，让用户放开该命令的网络权限后**原样重试一次** |
+   | **28**（超时）、**52**（空响应）、**55/56**（发送/接收失败）及其他非 0 | 请求可能已到达服务端，**结果未知** | 即 `push_result_unknown`：**不自动重试**，先 `list_skill_versions` 或让用户在「我的 Skill」/ Studio 版本历史确认是否已生成版本，再决定 |
+   | 0，状态 **200** | 成功 | 按下面「结果」汇报 |
+   | 0，状态 **4xx** 且响应体有 `error.code` | 服务端的明确拒绝，什么都没有应用（失败的推送会回滚） | 按下面「失败」处理；**看 `error.code`，不看 HTTP 状态**（409 同时用于 lease 错误和 `skill_exists`） |
+   | 0，状态 **5xx**，或响应体不是 JSON | 网关失败不能证明没有创建版本 | 同"结果未知"；响应体里若有 `request_id` / 头里有 `X-Trace-Id`，一并报告给用户 |
 
-**`--set-current` 与 `--visibility` 必须先问用户，Agent 不得主动添加**：`--set-current` 立即把该版本设为当前版本，
-`--visibility team` 让新 Skill 被接受发布后对同团队可见；二者都会改变他人实际运行或可见的内容，服务端无法确认勾选来自用户本人。
-默认都不传（版本待审核、分享范围 private 仅自己）；用户没有明确选择就一个都不传（Plugin 用 `ask_user_interact` 询问，CLI 在对话里询问）。
-`--visibility` 只用于**新建** Skill（`private` 或 `team`），它只是写入分享范围，被接受发布前他人仍看不到；更新已有 Skill
-（`--skill-id`）时永远不加 `--visibility`，改分享范围用 `update_skill`。`global` 不能通过插件或 CLI 设置。
+其余选项：`skill_id` 给自己名下的已有 Skill 加新版本（此时 `name` 可省，仅属主、限同一团队，不靠重名覆盖）；
+`category`（缺省由服务端定为 `general`）、`description`、`version`（semver；缺省为下一个补丁号，新建为 `1.0.0`）、`changelog`。
 
-**不可用**（`tool_unavailable`，或 lease 载荷没有 `skill_push_endpoint`）：保留本地草稿，如实说明这次没能提交，
-草稿在 <路径>。提交通道的可用性属于部署状态，不是 Skill 构建问题：**不记入 gaps、不 `--report`**，
-不重试，不换身份、入口或裸 HTTP 绕过。
+**`set_current` 与 `visibility` 必须先问用户，Agent 不得主动添加**：`set_current: true` 立即把该版本设为当前版本，
+`visibility: "team"` 让新 Skill 被接受发布后对同团队可见；二者都会改变他人实际运行或可见的内容，服务端无法确认勾选来自用户本人。
+默认都不传（版本待审核、分享范围 private 仅自己）；用户没有明确选择就一个都不传（用 `ask_user_interact` 询问）。
+`visibility` 只用于**新建** Skill（`private` 或 `team`），它只是写入分享范围，被接受发布前他人仍看不到；更新已有 Skill
+（带 `skill_id`）时永远不加 `visibility`，改分享范围用 `update_skill`。`global` 不能通过插件设置。
+
+**不可用**（lease 载荷没有 `skill_push_endpoint`）：保留本地草稿，如实说明这次没能提交，草稿在 <路径>。提交通道的可用性属于部署状态，
+不是 Skill 构建问题：**不记入遗留问题、不提报**，不重试，不换身份、入口或裸 HTTP 绕过。
 
 **结果**：成功返回 `status`（`version_pending` 或 `version_active`）、`skill`（id/name/created/status/scope/version）、
 `version`（id/version/status）、`api_codes`、`file_count`、`set_current`、`visibility`、`publish_required`、`warnings`。只按真实返回汇报：
@@ -108,23 +129,19 @@ ideaswork skill push <草稿目录> --name <skill-name> --category <category> --
   `draft` 占位行，可在「我的 Skill」里看到并拉取，但未被接受前不是已发布 Skill。不 publish、不覆盖正式版本、不保证返回 Studio 链接。
 - `set_current.error` 非空表示“设为当前版本”失败而推送本身成功：待审核版本已保留且版本号已占用，**不整体重试**，
   告诉用户到版本历史处理，或经用户确认后用 `manage_skill_version` 重试设为当前。
-- 分享范围只在新建时由 `--visibility` 决定，缺省 private（仅自己）；`skill.scope` 为 `private` 时不要说“团队已可用”，如实告诉用户目前只有自己能用。
+- 分享范围只在新建时由 `visibility` 决定，缺省 private（仅自己）；`skill.scope` 为 `private` 时不要说“团队已可用”，如实告诉用户目前只有自己能用。
 
 **失败**（`error_code`，看码不看 HTTP 状态）：
 - `invalid_archive` / `validation_failed` / `invalid_options` / `invalid_name`：草稿或参数问题，按提示修复后重推。
-- `skill_exists` / `version_exists`：名称已被占用 / 版本号已存在；自己名下的同名 Skill 改用 `--skill-id`，否则换名或换版本。不要覆盖。
+- `skill_exists` / `version_exists`：名称已被占用 / 版本号已存在；自己名下的同名 Skill 改用 `skill_id`，否则换名或换版本。不要覆盖。
 - `forbidden` / `team_mismatch` / `skill_not_found`：无权限、Skill 属于其他团队、Skill 不存在；让用户确认团队与 Skill，
   `team_mismatch` 需切回对应团队的 Context 后重新取 lease。保留草稿。
 - `runtime_lease_*`（过期、额度用尽、scope 不足）/ `push_requires_team`（当前 Context 没有团队）：按 `next_action` 重新获取 lease 或补授权/换团队。
 - `storage_failed`（`retryable=true`）：服务端已回滚，可稍后重试一次。
-- **`push_result_unknown`**（退出码 6，网络中断或网关 5xx 之后）：结果未知，**不自动重试**，先让用户在「我的 Skill」或 Studio 版本历史里
-  确认是否已生成版本，再决定；没有服务端确认就不能声称已提交。OAuth CLI 可用 `ideaswork skill versions <skill_id> --json` 直接查；
-  Plugin 用 Remote MCP 的 `list_skill_versions`。
-- **`validation_failed`**（退出码 1）：推送前的本地闸门或服务端校验未通过，消息里逐条列出问题（含 `skill_sop.json` 的字段路径）；修好草稿再推，不要改版本号。
-- **`push_network_unreachable`**（退出码 1，`retryable=true`）：连接都没建立，请求**没有发出**，草稿与线上版本不变；不要去查版本历史，
-  也不要换版本号乱试。多半是沙箱没有网络：向用户说明，申请放开该命令的网络权限后原样重推一次。
+- **`push_result_unknown`**（服务端返回的 503，或上面表里的"结果未知"）：**不自动重试**，先让用户在「我的 Skill」或 Studio 版本历史里
+  确认是否已生成版本，再决定；没有服务端确认就不能声称已提交。可用 Remote MCP 的 `list_skill_versions` 直接查。
+- **`validation_failed`**：服务端校验未通过，消息里逐条列出问题（含 `skill_sop.json` 的字段路径）；修好草稿再推，不要改版本号。
 缺少 OAuth scope 按服务端实际补充授权提示处理；有 scope 但业务权限不足应申请业务权限，不反复登录。
-Plugin/CLI 凭据不互换，不自动切通道重试。
 
 **提交之后：属主管理（Plugin 的 Remote MCP 工具，仅在用户要求时使用）**
 
@@ -142,7 +159,6 @@ Plugin/CLI 凭据不互换，不自动切通道重试。
 - 刻意不提供：发布状态与可见范围、API 白名单、目录可见性开关、删除；正式发布仍是 Studio 里的独立操作。
 - `browse_skills` 的 Catalog App 在「我的 Skill」下列出自己的全部 Skill（含草稿、已禁用），卡片上的「管理」把选择交还给 Agent
   （收到 `skill_manage_requested` 的用户消息）：用上面的工具继续，同样先确认。
-- CLI 暂无对应的管理命令；CLI 用户要接受/回滚版本，请指引到 Skill Studio 的版本历史。
 
 ### 5. 收口
 
@@ -150,4 +166,4 @@ Plugin/CLI 凭据不互换，不自动切通道重试。
 
 ## 产出
 
-通过静态校验的本地 Skill 草稿（含 `skill_sop.json`，并已向用户展示图谱）。只有实际提交成功时才附服务端返回的 Skill/版本元数据（默认是待审核版本）；没有服务端返回就只报告本地草稿，不声称已交接或已发布。
+通过本地自检的本地 Skill 草稿（含 `skill_sop.json`，并已向用户展示图谱）。只有实际提交成功时才附服务端返回的 Skill/版本元数据（默认是待审核版本）；没有服务端返回就只报告本地草稿，不声称已交接或已发布。

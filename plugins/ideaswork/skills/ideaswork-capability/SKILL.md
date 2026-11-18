@@ -1,20 +1,14 @@
 ---
 name: ideaswork-capability
-description: 用户要在 IdeasWork（心影）平台上直接生成、处理或查询内容（如图片、视频、音频），或把多个平台 API 组合起来完成任务时使用；即使连续调用多个 API，只要用户没有要求沉淀成 Skill，就保持此工作流。查找或运行已发布 Skill 属于 ideaswork-runner；把成果沉淀、构建或转化为 Skill 属于 ideaswork-builder。
+description: 通过 IdeasWork Remote MCP 查询、调用和组合平台业务能力，完成生成、处理、查询等实际任务。用户尚未要求构建 Skill 时，即使连续使用多个 API 也保持此工作流；明确要把已有成果沉淀为 Skill 时交给 ideaswork-builder，查找或运行已发布 Skill 时交给 ideaswork-runner。
 ---
 
 # IdeasWork Capability
 
-> 本制品不内置原生程序：首次需要本地 Runtime Core 命令前，先读 [references/PLUGIN_RUNTIME.md](references/PLUGIN_RUNTIME.md) 检查并按指引安装；Windows 原生环境用其中的 `.cmd` 写法，不要用 `sh`。
+## 执行入口（Plugin：只有 Remote MCP）
 
-## 执行入口选择（先于后续工具指引）
-
-- 制品明确为 `cli`、用户明确使用独立 CLI，或当前是仅提供 Shell/文件读写且没有原生 IdeasWork MCP 的
-  Harness：先读 [references/CLI_BINDING.md](references/CLI_BINDING.md)，使用 CLI 绑定。
-  该绑定替代后文 Remote MCP/App/lease 的调用方式，但不改变业务 Skill、用户授权或服务端权限边界。
-- 已配置 Remote MCP 的制品/任务：沿用下文 Remote MCP 主链路。连接缺失时按插件连接指引恢复，
-  不因工具暂未注入自动切换 CLI 身份，不把 CLI 当作权限或审批失败的绕过通道。
-
+本制品的平台能力、Catalog、Context、表单、异步查询都走 Remote MCP 工具。没有 `ideaswork` 命令、npm 或独立 CLI，
+不要寻找或安装它们。连接缺失时按下文恢复，不因工具暂未注入而换身份，不用裸 HTTP 冒充 MCP。
 
 在不运行完整线上 Skill 的情况下，查询、调用或组合 IdeasWork 的**平台业务能力**完成用户目标，不要求先构建 Skill：
 
@@ -43,16 +37,16 @@ description: 用户要在 IdeasWork（心影）平台上直接生成、处理或
 | 2 | `switch_context(mode="capability")` | 仅无 active context 或 mode 不符时 |
 | 3 | `blue_list_apis` | 本 Context 内已列过，或 `api_code` 已由前文确定：跳过 |
 | 4 | `blue_query_api_docs`：创建 API，**连同**已知的状态查询 API | 同一 Context 内已查过的 `api_code` 不重复查 |
-| 5 | `blue_exec_api`；已确定是异步时，**同一轮**加 `create_runtime_lease` | 同步 API 无需 lease |
-| 6 | `sh <plugin_root>/runtime/bin/ideaswork runtime wait-result` | 同步 API 无此步 |
+| 5 | `blue_exec_api` | 异步时下一步查状态，同步 API 无后续 |
+| 6 | `blue_exec_api` 反复查状态 API | 同步 API 无此步 |
 
 规则：
 
-- **互不依赖的调用放在同一轮发出**（如两个 `blue_query_api_docs`，或异步创建与 `create_runtime_lease`）。
-  宿主若串行执行也无妨，仍少一次模型往返。有数据依赖的不得同轮：`exec` 依赖文档，`wait-result` 依赖任务 ID。
-- **lease 不是调用 `blue_*` 或 `ask_user_interact` 的前置条件**：它们走宿主 OAuth。只有本地 Runtime Core 动作
-  （`wait-result`、`runtime python`、素材上传）才需要 lease。不要在 `get_current_context` / `switch_context` 之后预先取；
-  在确定要做本地动作的那一轮取，并在有效期内复用。
+- **互不依赖的调用放在同一轮发出**（如两个 `blue_query_api_docs`，或创建 API 与其状态 API 的文档查询）。
+  宿主若串行执行也无妨，仍少一次模型往返。有数据依赖的不得同轮：`exec` 依赖文档，状态查询依赖任务 ID。
+- **lease 不是调用 `blue_*` 或 `ask_user_interact` 的前置条件**：它们走宿主 OAuth，异步状态查询也是。
+  本制品里只有**本地文件上传**需要 lease（见文末「本地素材上传」）。不要预先取；在确定要上传本地文件的那一轮再
+  `create_runtime_lease`，并在有效期内复用。
 - 用户原话和 API 文档默认值能确定的参数不要再问；必须问时一次问全（见「MCP Apps」）。
 - 互相独立、文档均已查询的多个操作，用一次 `blue_exec_api`（传 `calls` 批量），不拆成多轮单调用。
 
@@ -66,18 +60,15 @@ description: 用户要在 IdeasWork（心影）平台上直接生成、处理或
   服务端明确要求选择工作区、原 Context 丢失需要恢复）。第②种必须**先停下**，说明原因并列出本次候选，等用户明确同意；
   不得静默切换，不得替用户猜选，不得回落到 OAuth 默认项目冒充恢复。
 - **切换前把“从 A → 到 B”（团队/项目名称）告诉用户并得到同意**。一次同意只对应这一次切换；之后要回原工作区同样要问。
-  切换后用 `get_current_context`（CLI：`ideaswork context`）再确认一次当前工作区。
+  切换后用 `get_current_context` 再确认一次当前工作区。
 - **不算切换、无需询问**：省略 `context_ref` 初始化 Context、只切 mode、复用当前会话。
-- **CLI 有硬门**：`context use <ref>`、`team use`、`project use` 切到与当前不同的工作区时会被拒绝，返回
-  `workspace_switch_requires_confirmation`（消息里有当前与目标名称）。用户同意后才加 `--confirm-switch` 重跑；
-  用户本轮自己明确要求切换，视同已同意，可直接加。**不得为了让命令通过而自行添加。** MCP 的
-  `switch_context(context_ref=…)` 服务端目前不强制，同样遵守本条。
+- MCP 的 `switch_context(context_ref=…)` 服务端目前不强制确认，所以更要自觉遵守本节：切换前必须先问用户。
 
 ## 连接与上下文
 
 1. 先检查本 task 是否已有 IdeasWork Remote MCP 工具（例如 `get_current_context`、`blue_query_api_docs`）。
-   - 若没有：请用户按宿主的提示，在插件连接管理处或首次调用时完成（或重新触发）IdeasWork 授权，然后重连或新建 task。
-   - 不读取 CLI 登录态，不执行宿主 CLI 的 MCP 登录命令，不以枚举 MCP 资源的结果是否为空判断登录或工具可用性。
+   - 若没有：请用户在插件中完成/重新触发 **Connect IdeasWork** 的 OAuth 授权，然后重连或新建 task。
+   - 不执行 `codex mcp login`，不以 `List MCP resources` 是否为空判断登录或工具可用性。
 2. **上下文只确认一次**：本会话内任一 `get_current_context` / `switch_context` 的返回已显示 capability 模式的
    active context，且用户没有要求换工作区，就直接进入「调用能力」，不重复检查。否则调用 `get_current_context`；
    没有 active context 或当前 mode 不是 `capability` 时调用：
@@ -110,23 +101,23 @@ description: 用户要在 IdeasWork（心影）平台上直接生成、处理或
    以 `VERTICAL` 开头）和带服务端策略标识的 API 不在 Capability 中直接开放。API 类型与可用范围以服务端为准，
    不靠 `api_code` 名称猜分类、不要求为普通 API 先 pull 一个 Skill。
    服务端仍校验 scope、工作区/资源权限、额度、依赖和审批。若旧部署仍返回 allowlist/grant 限制，以真实拒绝为准，
-   汇报尚未开放，不通过切 mode、拉不相关 Skill、本地脚本、CLI 或裸 HTTP 绕过；Runtime lease 不扩大权限。
-4. 只有多个操作彼此独立、每项文档均已查询、且不需要逐项根据结果调整时才用 `blue_exec_api` 的 `calls` 批量：
-   `calls` 是数组，每项携带一次 `blue_exec_api` 所需的 `api_code` 与 `body`，字段名以 MCP `tools/list`
-   返回的 schema 为准。否则按顺序调用 `blue_exec_api`。
-5. 若返回异步任务 ID，统一使用本地 Runtime Core `sh <plugin_root>/runtime/bin/ideaswork runtime wait-result` 等待并获取结果。
-   使用 `wait_result_hint` 的查询 API 和完成条件；其文档若还没查询过就先查，按创建响应中的真实任务 ID
-   组织查询参数；hint 带 `fallback` 时主查询查不到就用它；缺少查询 API，或 hint 的查询 API 查不到结果（如 Remote MCP 下 `t2v_session_task_create`
-的 `t2v_session_task_query` 按会话恒为空，应用 `data.data.base_task_id` 查 `task_status`）时，
-仅在 `task_status` 已授权且文档确认适用时使用它。
-   需要 lease 时调用 `create_runtime_lease` 取得当前 capability Context 的短期 lease（入参以 `tools/list`
-   返回的 schema 为准；已确定是异步时可与 `blue_exec_api` 同轮发出），有效期间串行复用；
-   把 `runtime_endpoint` / `runtime_lease` 仅传给 Runtime Core parent，不写入文件或普通日志。
-   单任务传 `--query-api-code / --params-json / --completion-json`；同批多任务一次传 `--tasks-json`。
-   用等待器的 `--initial-delay / --interval / --max-polls` 管理等待窗口，不由 Agent 手工 sleep 或轮询。
-   `timeout` 只表示本段未完成；任务仍在运行时续等，不重提交创建请求。lease 失效后按返回的
-   `next_action` 重签或核对 Context，再继续等待。无授权、无状态接口或等待到上限时，汇报任务 ID
-   和实际状态，不绕过服务端准入，不猜测参数或结果字段。
+   汇报尚未开放，不通过切 mode、拉不相关 Skill、本地脚本或裸 HTTP 绕过；Runtime lease 不扩大权限。
+4. 只有多个操作彼此独立、每项文档均已查询、且不需要逐项根据结果调整时才用 `blue_exec_api` 的 `calls` 批量。否则按顺序
+   调用 `blue_exec_api`。
+5. 若返回异步任务 ID，用 `blue_exec_api` 反复调用状态查询 API 取得结果。这条路径走宿主 OAuth，**不用 lease、不占 lease 额度**；
+   **提交成功不等于完成**，不要把"请求已提交"当作最终结果。
+   - 优先用创建响应里的 `wait_result_hint`：`query_api_code`（状态查询 API）与 `completion_config`（完成条件）；
+     其文档若还没查过就先 `blue_query_api_docs`；查询参数从创建响应里的**真实任务 ID** 组织。
+   - hint 带 `fallback` 时，主查询查不到就用它；缺少查询 API，或 hint 的查询 API 查不到结果（如 Remote MCP 下
+     `t2v_session_task_create` 的 `t2v_session_task_query` 按会话恒为空，应用 `data.data.base_task_id` 查 `task_status`）时，
+     仅在 `task_status` 已授权且文档确认适用时使用它。`task_status` 不返回 `cdn_url`，需要时再查 `task_detail`。
+   - **判定规则**按 `completion_config` 逐字执行：`field` 是 `.` 分隔的路径（不含 `[]`）；`op` 默认 `eq`，支持
+     `eq / ne / in / not_in / contains / exists / gt / gte / lt / lte`；`all_of` / `any_of` 是规则数组；`fail_if` 命中即判**失败**，
+     优先于成功判定；字段不存在视为"还没完成"，除非规则用了 `exists`；不能拿传输层的 `code` / `status` / `message` 当完成字段。
+   - **轮询**：同批互相独立的任务合并进**一次** `blue_exec_api(calls=[…])` 查询，已到终态的不再查；两次查询之间用 Host Bash
+     `sleep <秒>`（首次可先 `sleep 30`，之后约 15 秒）。一段等待窗口给总次数设上限（例如 20 次），到上限仍未终态就如实汇报
+     任务 ID 与"仍在生成"，由用户决定是否继续；**不重新提交创建请求**，创建过的任务只查询、不重建。
+   - 无授权、无状态接口或到上限时，汇报任务 ID 和实际状态，不绕过服务端准入，不猜测参数或结果字段。
 6. 结果中的任务标识、产物地址、错误或后续动作必须如实汇报；不要将“请求已提交”表述为“已生成完成”。
 
 ## MCP Apps：需求与素材
@@ -145,7 +136,7 @@ description: 用户要在 IdeasWork（心影）平台上直接生成、处理或
   取数）时，Agent 才用 `browse_materials` 在对话中列候选；用户文字确认后将素材写入字段 `value`，用
   `draft` 回填其他字段，再展示表单。
 - Remote MCP 没有审批通道：`blue_exec_api` 对 `need_user_approval` API 会拒绝执行。告知用户限制并停止，
-  不把聊天确认当成审批，不用 CLI 或其他路径绕过。
+  不把聊天确认当成审批，不用其他路径绕过。
 - MCP App 无法渲染时，才在文本中收集同一字段；无需提交/状态工具。
 
 ## 汇报
@@ -155,4 +146,23 @@ description: 用户要在 IdeasWork（心影）平台上直接生成、处理或
 
 ## 本地素材上传
 
-用户指定本地文件、或 Skill 需要将本地产物入素材库时，先读 [references/MATERIAL_UPLOAD.md](references/MATERIAL_UPLOAD.md)。要点：不能把本机文件路径直接发给 `blue_exec_api`；超时/结果未知不自动重传，先检查素材库。
+- 用户指定本地文件、或需要将本地产物入素材库时，复用 `material_upload_proxy`。
+  先确认当前 Context 和 API 文档/grant（先 `blue_query_api_docs("material_upload_proxy")`），
+  不能把本机文件路径直接发给 `blue_exec_api`。
+- 这是本制品里**唯一需要 lease** 的动作：调用 `create_runtime_lease`（或沿用 `pull_skill` 返回的 lease）取得
+  `material_upload_endpoint` 与 `runtime_lease`。lease **只经 stdin 传给 curl**（`-H @-`），不写进命令行参数、环境变量、文件或日志：
+
+  ```sh
+  curl -fsS -X POST -H @- --max-time 900 \
+    -F 'body={"<API 文档要求的其它参数>":"..."}' \
+    -F 'file=@<本机文件路径>' \
+    "<material_upload_endpoint>" <<'EOF'
+  Authorization: Bearer <runtime_lease>
+  EOF
+  ```
+
+  `body` 是不含 `file` 的 JSON 对象（至多 64 KiB），`file` 恰好一个、非空、至多 500 MiB；两个字段都要有，不要再加别的字段。
+  上传前确认路径是普通文件（不是软链）。需要 `curl`（macOS / Linux / WSL）；原生 Windows 不在本制品支持范围，如实告知用户。
+- lease 缺失/过期：通过当前 MCP 获取新的 lease；Context 改变先确认 Context。不因权限拒绝切换入口。
+- **超时或结果未知不自动重传**：Engine 的 MD5 复用不保证素材创建幂等，重传可能重复创建素材。先检查素材库再决定。
+- 上传返回 `material_id` 后，后续 API 里只传 `material_id`，不再补一次上传。

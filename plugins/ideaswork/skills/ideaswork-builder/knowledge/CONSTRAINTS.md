@@ -18,7 +18,7 @@
 | 操作 | 正确做法 | 禁止 |
 |------|----------|------|
 | 调平台业务 API | Agent 直接 `blue_exec_api` / 脚本内 `call_platform_api()` | 在脚本里堆编排逻辑 |
-| 等待异步任务 | Skill 指令声明轮询；Plugin 本地用 Runtime Core `wait_result` | 脚本内 `while` + `sleep` 死等 |
+| 等待异步任务 | Skill 指令声明轮询；Plugin 用 `blue_exec_api` 反复查状态 API | 脚本内 `while` + `sleep` 死等 |
 | LLM / TTS | 薄脚本：加载 prompt → 调用 → 写结果文件 | — |
 
 ### 异步任务的 register_async_poll 参数（给个有依据的起点）
@@ -79,6 +79,6 @@ model = os.getenv("LLM_MODEL")
 | `call_platform_api(api_code, body)` | **完全不变** —— 平台沙箱注入同名内置函数 |
 | `blue_exec_api(api_code, body)` | Agent 的 `blue_exec_api` 工具调用 |
 | `blue_query_api_docs(api_code)` | Agent 的 `blue_query_api_docs` 工具调用 |
-| `register_async_poll(query_api, params, completion_config=…)` | Plugin 本地用 Runtime Core `wait_result`；平台内运行时使用其异步原语 |
+| `register_async_poll(query_api, params, completion_config=…)` | Plugin 用 `blue_exec_api` 反复查状态 API 并按 `completion_config` 判定；平台内运行时使用其异步原语 |
 
-迁移时：脚本原样上传，`call_platform_api(...)` 行不变，没有桥接块可删。旧草稿遗留的标记桥接块仍会在 `ideaswork skill push` 的上传副本中剥离；平台自行维护 `__skill_meta.json`，推送只生成待审核版本（由属主在 Studio 版本历史接受），不自动发布。
+迁移时：脚本原样上传，`call_platform_api(...)` 行不变，没有桥接块可删。旧草稿遗留的标记桥接块**必须先手工删除**（`pack_skill.py` 会拒绝打包）；平台自行维护 `__skill_meta.json`，推送只生成待审核版本（由属主在 Studio 版本历史接受），不自动发布。
