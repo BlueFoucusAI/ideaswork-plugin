@@ -4,8 +4,21 @@
 `material upload`、`skill push`（上传本地 Skill 草稿，见 ideaswork-builder）。Remote MCP 的目录查询、API 调用、
 Skill 版本管理等不依赖它，不要为这些先安装。
 
-插件固定使用 npm 包 `@ideaswork/cli-preprod@2026.1106.154617-preprod`（渠道 `preprod`），版本与插件一致。
+插件固定使用 npm 包 `@ideaswork/cli-preprod@2026.1118.131717-preprod`（渠道 `preprod`），版本与插件一致。
 不要改用其他版本，也不要使用 PATH 上来源不明的 `ideaswork`。
+
+## 启动脚本做什么
+
+1. 私有前缀 `~/.ideaswork/npx` 里已经是这个精确版本时，直接 `node ~/.ideaswork/npx/node_modules/@ideaswork/cli-preprod/scripts/run.cjs --runtime-only ...`：
+   不调用 npm、不联网、不改 PATH，并在调用方当前工作目录启动。
+2. 否则把精确版本装进该前缀（`npm install --prefix ~/.ideaswork/npx ... @ideaswork/cli-preprod@2026.1118.131717-preprod`），再执行同一个入口。
+   前缀是独立的 npm 项目根，调用方仓库的 `.npmrc`/`node_modules` 不参与解析；`--prefer-online`
+   保证刚发布的版本不会被旧 packument 缓存误判为不存在。
+3. 启动脚本不通过 npm 的命令解析（`npx`）执行命令：`npx --prefix` 在包已装在私有前缀时不会把该前缀的
+   `.bin` 放进子进程 `PATH`，Windows 上会因此报 `'ideaswork' is not recognized`。
+
+私有前缀在 macOS/Linux 是 `~/.ideaswork/npx`，Windows 是 `%USERPROFILE%\.ideaswork\npx`；没有可用的
+`USERPROFILE` 时才用临时目录。它只存放这一个 npm 包，不影响系统 `PATH`，也不需要全局安装权限。
 
 ## Windows（原生，无需 WSL）
 
@@ -26,17 +39,17 @@ cmd.exe 会改写引号、`%` 和 `&`，所以 Windows 上**不要把 JSON 直�
 sh <plugin_root>/runtime/bin/ideaswork --json version
 ```
 
-- 成功且 `version` 为 `2026.1106.154617-preprod`：直接使用 Skill 里的 runtime 命令。
-- 失败（`native_binary_missing`、找不到 npx、版本不一致）：按下面安装。
+- 成功且 `version` 为 `2026.1118.131717-preprod`：直接使用 Skill 里的 runtime 命令。
+- 失败（`native_binary_missing`、`node_missing`/`npm_missing`、`launcher_entry_missing`、版本不一致）：按下面安装。
 
 `runtime python` 另需本机 Python 3.10+（macOS 自带的 python3 是 3.9）。不满足时返回 `python_version_unsupported`、脚本不执行；
 请用户安装 3.10+ 后用 `--python-executable <路径>` 指定。Node.js 低于 22 时启动入口直接报 `node_version_unsupported`。
 
 ## 安装（先让用户知情）
 
-简短告知用户：需要 Node.js 22+ 和网络；会全局安装 `@ideaswork/cli-preprod@2026.1106.154617-preprod`，并把校验过 SHA-256 的原生程序
-下载到 `~/.ideaswork/npm/preprod/`；不会登录，也不会读取或修改 IdeasWork 登录状态。
-用户拒绝则不安装，并如实说明依赖本地命令的步骤无法执行。
+简短告知用户：需要 Node.js 22+ 和网络；会把 `@ideaswork/cli-preprod@2026.1118.131717-preprod` 装到私有前缀 `~/.ideaswork/npx`（不写系统 PATH），
+并把校验过 SHA-256 的原生程序下载到 `~/.ideaswork/npm/preprod/`；不会登录，也不会读取或修改
+IdeasWork 登录状态。用户拒绝则不安装，并如实说明依赖本地命令的步骤无法执行。
 
 ```bash
 sh <plugin_root>/runtime/bin/ideaswork install --components runtime --native install --yes
@@ -46,12 +59,16 @@ sh <plugin_root>/runtime/bin/ideaswork install --components runtime --native ins
 
 ## 失败时
 
-- 没有 Node/npx：请用户安装 Node.js 22+；不要用其他方式下载原生程序。
-- 沙箱没有网络：第一次运行某个版本需要联网安装一次；脚本会明确提示「当前环境没有网络」，请用户放开网络权限后重试。
-  已安装过该精确版本、且本地 npm 缓存未被清理时，不再访问网络（启动脚本以 `--no-install --offline` 只读本地缓存）。
-- `ETARGET` / `No matching version found`：npm registry 上查不到该固定版本，或本地缓存缺少该版本且当前无法联网刷新。
-  请确认该版本已发布并与插件版本一致；不要改用其他版本，也不要清空整个 npm 缓存。
-- `npm 操作失败`（常见为全局目录无权限）：如实告诉用户，由用户处理 npm 全局目录权限；不使用 sudo。
+启动脚本的失败行都带 `错误码：<code>`；按错误码处理，不要把安装失败一律当成网络问题。
+
+- `node_missing` / `npm_missing`：没有 Node.js 22+（或没有 npm）。请用户安装 Node.js 22+；不要用其他方式下载原生程序。
+- `npm_registry_unreachable`：当前环境没有网络（沙箱里常见）。第一次运行某个版本需要联网安装一次，请用户放开网络权限后重试；
+  已装好该精确版本时启动脚本完全不联网。
+- `npm_version_not_found`（`ETARGET` / `No matching version found`）：npm registry 上查不到该固定版本。请确认该版本已发布
+  并与插件版本一致；不要改用其他版本，也不要清空整个 npm 缓存。
+- `npm_install_failed`：npm install 的其他失败（如 `E404`、全局目录无权限）。如实告诉用户 npm 的原始报错；不使用 sudo。
+- `launcher_entry_missing` / `launcher_version_mismatch`：私有前缀里的包不完整或版本不对（可能是并发安装或手工放入过其他版本）。
+  可删除 `~/.ideaswork/npx/node_modules/@ideaswork/cli-preprod` 后重试；不要手工复制二进制。
 - 下载或校验失败：如实报告，不绕过校验，不手工复制二进制。
 - 插件更新后版本变化：重新检查并安装；旧版本程序不受影响，也不会清理任务状态。
 
