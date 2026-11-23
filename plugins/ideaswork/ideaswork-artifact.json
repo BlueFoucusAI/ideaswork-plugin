@@ -1,7 +1,7 @@
 {
   "contract_version": 1,
   "name": "ideaswork",
-  "version": "2026.1123.161219-dev",
+  "version": "2026.1123.175704-dev",
   "target": "plugin",
   "artifact_kind": "codex_plugin",
   "runtime": {
